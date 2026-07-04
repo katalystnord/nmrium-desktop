@@ -28,6 +28,7 @@
     "directories": {
       "buildResources": "build"
     },
+    "afterPack": "./scripts/appimage-wrap.cjs",
     "files": [
       "electron/**/*"
     ],
