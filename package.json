@@ -43,12 +43,14 @@
         "ext": "dx",
         "name": "JCAMP-DX Spectrum",
         "description": "JCAMP-DX NMR spectrum file",
+        "mimeType": "chemical/x-jcamp-dx",
         "role": "Editor"
       },
       {
         "ext": "jdx",
         "name": "JCAMP-DX Spectrum",
         "description": "JCAMP-DX NMR spectrum file",
+        "mimeType": "chemical/x-jcamp-dx",
         "role": "Editor"
       }
     ],
