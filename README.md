@@ -46,6 +46,27 @@ CI (GitHub Actions), not locally.
 npm run dist
 ```
 
+## Sample / teaching data (optional)
+
+The packaged app ships without NMRium's own demo sample catalog (Cytisine,
+ethylbenzene, teaching exercises, etc. — `nmrium/build/data` and
+`/exercises`, ~250MB) since it's demo content for the public web app, not
+something you need to open your own spectra. This is most of why the
+installer is small.
+
+If you want it anyway (e.g. for the built-in "Samples"/"Exercises" sidebar
+browsing), build and install the archive separately:
+
+```sh
+npm run build:samples-archive      # writes dist/nmrium-samples.zip
+unzip dist/nmrium-samples.zip -d ~/.config/nmrium-desktop/samples   # Linux
+```
+
+(On macOS: `~/Library/Application Support/nmrium-desktop/samples`; on
+Windows: `%APPDATA%\nmrium-desktop\samples`.) The app checks that directory
+first and falls back to the bundled build, so no reinstall is needed —
+just extract and reopen the app.
+
 ## Updating NMRium
 
 ```sh
@@ -67,7 +88,9 @@ nmrium-desktop/
 │   └── preload.js   # feeds opened files into NMRium's own file input
 ├── scripts/
 │   ├── build-nmrium.sh
-│   └── update-nmrium.sh
+│   ├── update-nmrium.sh
+│   ├── build-samples-archive.sh   # optional nmrium-samples.zip (see below)
+│   └── appimage-wrap.cjs          # afterPack: force --no-sandbox on Linux
 ├── build/
 │   └── icon.png     # app icon — NMRium's own brand mark (from nmrium.com/brand), electron-builder generates .ico/.icns from this
 ├── nmrium/          # git submodule -> github.com/cheminfo/nmrium, pinned to v2.3.0

@@ -17,6 +17,14 @@ const NMRIUM_DIST = app.isPackaged
   ? path.join(process.resourcesPath, 'nmrium-dist')
   : path.join(__dirname, '..', 'nmrium', 'build');
 
+// The packaged app ships without NMRium's own demo sample/teaching data
+// (nmrium/build/data, /exercises — ~250MB of the upstream demo's sample
+// catalog, not useful for opening your own real spectra) to keep install
+// size down. Users who want that data anyway can download
+// nmrium-samples.zip (see scripts/build-samples-archive.sh) and extract it
+// here; if present, it's served in preference to the (missing) bundled copy.
+const SAMPLES_OVERRIDE_DIR = path.join(app.getPath('userData'), 'samples');
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
@@ -32,19 +40,35 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow = null;
 let pendingOpenPath = null;
 
-function resolveRequestedFile(pathname) {
+function resolveRequestedPath(pathname) {
   let relativePath = decodeURIComponent(pathname);
   if (relativePath === '' || relativePath === '/') {
     relativePath = '/index.html';
   }
-  return path.join(NMRIUM_DIST, relativePath);
+  return relativePath;
+}
+
+async function pathExists(candidate) {
+  try {
+    await fs.access(candidate);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function registerAppProtocol() {
-  protocol.handle(APP_SCHEME, (request) => {
-    const url = new URL(request.url);
-    const filePath = resolveRequestedFile(url.pathname);
-    return net.fetch(`file://${filePath}`);
+  protocol.handle(APP_SCHEME, async (request) => {
+    const relativePath = resolveRequestedPath(new URL(request.url).pathname);
+
+    if (relativePath.startsWith('/data/') || relativePath.startsWith('/exercises/')) {
+      const overridePath = path.join(SAMPLES_OVERRIDE_DIR, relativePath);
+      if (await pathExists(overridePath)) {
+        return net.fetch(`file://${overridePath}`);
+      }
+    }
+
+    return net.fetch(`file://${path.join(NMRIUM_DIST, relativePath)}`);
   });
 }
 
