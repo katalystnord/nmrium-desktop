@@ -68,6 +68,8 @@ nmrium-desktop/
 ├── scripts/
 │   ├── build-nmrium.sh
 │   └── update-nmrium.sh
+├── build/
+│   └── icon.png     # app icon — NMRium's own brand mark (from nmrium.com/brand), electron-builder generates .ico/.icns from this
 ├── nmrium/          # git submodule -> github.com/cheminfo/nmrium, pinned to v2.3.0
 └── package.json     # electron-builder config lives here
 ```
