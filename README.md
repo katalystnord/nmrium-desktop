@@ -55,7 +55,20 @@ something you need to open your own spectra. This is most of why the
 installer is small.
 
 If you want it anyway (e.g. for the built-in "Samples"/"Exercises" sidebar
-browsing), build and install the archive separately:
+browsing), there are two ways to get it — either works, no reinstall of the
+main app needed, just reopen it after:
+
+**Debian/Ubuntu — companion `.deb` (recommended on Linux):**
+
+```sh
+npm run build:samples-deb          # writes dist/nmrium-desktop-samples_<version>_all.deb
+sudo apt install ./dist/nmrium-desktop-samples_2.3.0_all.deb
+```
+
+Installs system-wide to `/usr/share/nmrium-desktop/samples`, which the app
+checks automatically.
+
+**Any OS — zip, extracted per-user:**
 
 ```sh
 npm run build:samples-archive      # writes dist/nmrium-samples.zip
@@ -63,9 +76,9 @@ unzip dist/nmrium-samples.zip -d ~/.config/nmrium-desktop/samples   # Linux
 ```
 
 (On macOS: `~/Library/Application Support/nmrium-desktop/samples`; on
-Windows: `%APPDATA%\nmrium-desktop\samples`.) The app checks that directory
-first and falls back to the bundled build, so no reinstall is needed —
-just extract and reopen the app.
+Windows: `%APPDATA%\nmrium-desktop\samples`.) The app checks the per-user
+copy first, then the system-wide `.deb` install, then falls back to the
+(missing) bundled copy.
 
 ## Updating NMRium
 
@@ -90,6 +103,7 @@ nmrium-desktop/
 │   ├── build-nmrium.sh
 │   ├── update-nmrium.sh
 │   ├── build-samples-archive.sh   # optional nmrium-samples.zip (see below)
+│   ├── build-samples-deb.sh       # optional nmrium-desktop-samples .deb (see below)
 │   └── appimage-wrap.cjs          # afterPack: force --no-sandbox on Linux
 ├── build/
 │   └── icon.png     # app icon — NMRium's own brand mark (from nmrium.com/brand), electron-builder generates .ico/.icns from this

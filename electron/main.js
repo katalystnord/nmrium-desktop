@@ -20,10 +20,14 @@ const NMRIUM_DIST = app.isPackaged
 // The packaged app ships without NMRium's own demo sample/teaching data
 // (nmrium/build/data, /exercises — ~250MB of the upstream demo's sample
 // catalog, not useful for opening your own real spectra) to keep install
-// size down. Users who want that data anyway can download
-// nmrium-samples.zip (see scripts/build-samples-archive.sh) and extract it
-// here; if present, it's served in preference to the (missing) bundled copy.
-const SAMPLES_OVERRIDE_DIR = path.join(app.getPath('userData'), 'samples');
+// size down. Users who want that data anyway can either extract
+// nmrium-samples.zip (build-samples-archive.sh) into their per-user data
+// dir, or install the nmrium-desktop-samples .deb (build-samples-deb.sh),
+// which drops it system-wide. The per-user copy wins if both are present.
+const SAMPLES_SEARCH_DIRS = [
+  path.join(app.getPath('userData'), 'samples'),
+  '/usr/share/nmrium-desktop/samples',
+];
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -62,9 +66,11 @@ function registerAppProtocol() {
     const relativePath = resolveRequestedPath(new URL(request.url).pathname);
 
     if (relativePath.startsWith('/data/') || relativePath.startsWith('/exercises/')) {
-      const overridePath = path.join(SAMPLES_OVERRIDE_DIR, relativePath);
-      if (await pathExists(overridePath)) {
-        return net.fetch(`file://${overridePath}`);
+      for (const dir of SAMPLES_SEARCH_DIRS) {
+        const candidate = path.join(dir, relativePath);
+        if (await pathExists(candidate)) {
+          return net.fetch(`file://${candidate}`);
+        }
       }
     }
 

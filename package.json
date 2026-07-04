@@ -16,7 +16,8 @@
     "dist": "npm run build:nmrium && electron-builder --publish never",
     "pack": "npm run build:nmrium && electron-builder --dir",
     "update-nmrium": "bash scripts/update-nmrium.sh",
-    "build:samples-archive": "bash scripts/build-samples-archive.sh"
+    "build:samples-archive": "bash scripts/build-samples-archive.sh",
+    "build:samples-deb": "bash scripts/build-samples-deb.sh"
   },
   "devDependencies": {
     "electron": "^35.0.0",
