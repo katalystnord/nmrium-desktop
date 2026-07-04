@@ -1,0 +1,5 @@
+node_modules/
+dist/
+nmrium/build/
+*.log
+.DS_Store

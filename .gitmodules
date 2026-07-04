@@ -1,0 +1,3 @@
+[submodule "nmrium"]
+	path = nmrium
+	url = https://github.com/cheminfo/nmrium

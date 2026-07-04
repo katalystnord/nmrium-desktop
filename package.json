@@ -1,0 +1,89 @@
+{
+  "name": "nmrium-desktop",
+  "version": "2.3.0",
+  "description": "NMRium NMR spectrum viewer — desktop app",
+  "homepage": "https://github.com/cheminfo/nmrium",
+  "author": {
+    "name": "David",
+    "email": "david@katalystnord.com"
+  },
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:nmrium": "bash scripts/build-nmrium.sh",
+    "build": "npm run build:nmrium && electron-builder",
+    "dist": "npm run build:nmrium && electron-builder --publish never",
+    "pack": "npm run build:nmrium && electron-builder --dir",
+    "update-nmrium": "bash scripts/update-nmrium.sh"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.nmrium.desktop",
+    "productName": "NMRium Desktop",
+    "asar": true,
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "nmrium/build",
+        "to": "nmrium-dist"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "dx",
+        "name": "JCAMP-DX Spectrum",
+        "description": "JCAMP-DX NMR spectrum file",
+        "role": "Editor"
+      },
+      {
+        "ext": "jdx",
+        "name": "JCAMP-DX Spectrum",
+        "description": "JCAMP-DX NMR spectrum file",
+        "role": "Editor"
+      }
+    ],
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Science;Education"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.education"
+    }
+  }
+}
