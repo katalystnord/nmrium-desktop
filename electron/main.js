@@ -7,6 +7,9 @@ const {
   dialog,
   protocol,
   net,
+  ipcMain,
+  shell,
+  nativeImage,
 } = require('electron');
 
 const APP_SCHEME = 'app';
@@ -20,6 +23,19 @@ const RENDERER_DIST = app.isPackaged
 const SAMPLES_CATALOG_FILE = app.isPackaged
   ? path.join(process.resourcesPath, 'samples-catalog.json')
   : path.join(__dirname, '..', 'nmrium', 'src', 'demo', 'samples.json');
+
+// electron-builder's own generated OS icons (installer/.desktop/icon-theme)
+// aren't visible to our own running process at a predictable path, and
+// BrowserWindow needs an explicit `icon` to get a correct _NET_WM_ICON on
+// Linux — without it, the taskbar/alt-tab icon falls back to Electron's own
+// generic icon. Ship our own copy as a resource so this works everywhere.
+const ICON_PATH = app.isPackaged
+  ? path.join(process.resourcesPath, 'icon.png')
+  : path.join(__dirname, '..', 'build', 'icon.png');
+// A raw path string handed to BrowserWindow's `icon` option has proven
+// unreliable for setting _NET_WM_ICON on Linux (X11/XWayland) — loading it
+// through nativeImage first is the reliable form.
+const ICON_IMAGE = nativeImage.createFromPath(ICON_PATH);
 
 // The packaged app ships without NMRium's own demo sample/teaching data
 // (~250MB of the upstream demo's sample catalog, not useful for opening your
@@ -46,6 +62,20 @@ const SAMPLE_MENU_GROUPS = [
   'Simulation',
 ];
 
+// NMRium's own built-in workspace presets (nmrium/src/component/main/types.ts)
+// — each reconfigures which panels/toolbar buttons are shown for a given
+// task. Undiscoverable from inside the app itself, so surfaced as a native
+// View > Workspace menu instead.
+const WORKSPACES = [
+  { id: 'default', label: 'Default' },
+  { id: 'process1D', label: '1D Processing' },
+  { id: 'prediction', label: 'Prediction' },
+  { id: 'assignment', label: 'Assignment' },
+  { id: 'simulation', label: 'Simulation' },
+  { id: 'exercise', label: 'Exercise' },
+  { id: 'embedded', label: 'Embedded (minimal UI)' },
+];
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
@@ -60,6 +90,7 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow = null;
 let pendingOpenPath = null;
+let currentWorkspace = 'default';
 
 function resolveRequestedPath(pathname) {
   let relativePath = decodeURIComponent(pathname);
@@ -111,6 +142,54 @@ async function handleOpenDialog() {
   await sendFileToRenderer(result.filePaths[0]);
 }
 
+function handleSaveAs() {
+  if (!mainWindow) return;
+  mainWindow.webContents.send('trigger-save-as', {
+    settings: true,
+    view: true,
+    dataType: 'SELF_CONTAINED',
+  });
+}
+
+function handleExportSvg() {
+  if (!mainWindow) return;
+  mainWindow.webContents.send('trigger-export-svg');
+}
+
+// The renderer computes the export up front (it's the only side that can
+// call NMRium's ref API) and hands the bytes back here; we only prompt for
+// a destination once we actually have something to write.
+function registerExportIpcHandlers() {
+  ipcMain.on('nmrium-file-data', async (_event, { buffer, fileName }) => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save NMRium experiment',
+      defaultPath: fileName,
+      filters: [{ name: 'NMRium archive', extensions: ['nmrium'] }],
+    });
+    if (result.canceled || !result.filePath) return;
+    await fs.writeFile(result.filePath, Buffer.from(buffer));
+  });
+
+  ipcMain.on('nmrium-svg-data', async (_event, { buffer, fileName }) => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export spectrum as SVG',
+      defaultPath: fileName,
+      filters: [{ name: 'SVG image', extensions: ['svg'] }],
+    });
+    if (result.canceled || !result.filePath) return;
+    await fs.writeFile(result.filePath, Buffer.from(buffer));
+  });
+
+  ipcMain.on('nmrium-action-error', (_event, message) => {
+    if (!mainWindow) return;
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Nothing to export',
+      message,
+    });
+  });
+}
+
 async function findSamplesRoot() {
   for (const dir of SAMPLES_SEARCH_DIRS) {
     if (await pathExists(path.join(dir, 'data'))) return dir;
@@ -141,6 +220,20 @@ async function buildOpenSampleSubmenu() {
     }));
 }
 
+function configureAboutPanel() {
+  const { version } = require('../package.json');
+  app.setAboutPanelOptions({
+    applicationName: 'NMRium Desktop',
+    applicationVersion: version,
+    iconPath: ICON_PATH,
+    copyright: 'NMRium © Zakodium/cheminfo (MIT). Electron wrapper by David.',
+    credits:
+      'NMRium is developed by Zakodium/cheminfo, with support from EU ' +
+      'Horizon 2020 grant funding. https://www.nmrium.org',
+    website: 'https://www.nmrium.org',
+  });
+}
+
 async function buildMenu() {
   const openSampleSubmenu = await buildOpenSampleSubmenu();
   const template = [
@@ -157,23 +250,43 @@ async function buildMenu() {
           submenu: openSampleSubmenu,
         },
         { type: 'separator' },
+        {
+          label: 'Save As…',
+          click: () => handleSaveAs(),
+        },
+        {
+          label: 'Export as SVG…',
+          click: () => handleExportSvg(),
+        },
+        { type: 'separator' },
         { role: 'quit' },
       ],
     },
     {
+      // No Undo/Redo here on purpose: NMRium has no working undo/redo of
+      // its own (even internally — it's dead scaffolding upstream), so
+      // Electron's generic role-based Undo/Redo would just act on the
+      // browser's contentEditable text-undo stack and do nothing useful.
       label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-      ],
+      submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }],
     },
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Workspace',
+          submenu: WORKSPACES.map((workspace) => ({
+            label: workspace.label,
+            type: 'radio',
+            checked: currentWorkspace === workspace.id,
+            click: () => {
+              currentWorkspace = workspace.id;
+              mainWindow?.webContents.send('set-workspace', workspace.id);
+              buildMenu();
+            },
+          })),
+        },
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'toggleDevTools' },
         { type: 'separator' },
@@ -184,6 +297,21 @@ async function buildMenu() {
         { role: 'togglefullscreen' },
       ],
     },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'About NMRium Desktop', click: () => app.showAboutPanel() },
+        {
+          label: 'NMRium Documentation',
+          click: () => shell.openExternal('https://docs.nmrium.org'),
+        },
+        {
+          label: 'NMRium Desktop on GitHub',
+          click: () =>
+            shell.openExternal('https://github.com/katalystnord/nmrium-desktop'),
+        },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -192,6 +320,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    icon: ICON_IMAGE,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -243,6 +372,8 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     registerAppProtocol();
+    registerExportIpcHandlers();
+    configureAboutPanel();
     createWindow();
     await buildMenu();
 

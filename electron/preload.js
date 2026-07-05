@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 // NMRium's own DropZone (react-dropzone) already renders a hidden
 // `<input type="file">` wired to its normal file-loading pipeline. Rather
@@ -56,4 +56,22 @@ ipcRenderer.on('open-file', (_event, { name, data }) => {
   deliverFile(name, data).catch((error) => {
     console.error('Failed to deliver opened file to NMRium:', error);
   });
+});
+
+// Native menu actions (Save/Export/Workspace) need real access to the
+// mounted <NMRium> component's ref API — unlike file-open, there's no DOM
+// element to drive from outside, so this goes through a proper
+// contextBridge API instead of a simulated DOM event.
+contextBridge.exposeInMainWorld('electronAPI', {
+  onTriggerSaveAs: (callback) =>
+    ipcRenderer.on('trigger-save-as', (_event, options) => callback(options)),
+  onTriggerExportSvg: (callback) =>
+    ipcRenderer.on('trigger-export-svg', () => callback()),
+  onSetWorkspace: (callback) =>
+    ipcRenderer.on('set-workspace', (_event, workspace) => callback(workspace)),
+  sendNmriumFileData: (buffer, fileName) =>
+    ipcRenderer.send('nmrium-file-data', { buffer, fileName }),
+  sendNmriumSvgData: (buffer, fileName) =>
+    ipcRenderer.send('nmrium-svg-data', { buffer, fileName }),
+  sendActionError: (message) => ipcRenderer.send('nmrium-action-error', message),
 });

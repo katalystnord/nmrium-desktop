@@ -52,6 +52,12 @@ jobs:
       - name: Build NMRium
         run: bash scripts/build-nmrium.sh
 
+      - name: Generate icons
+        run: npm run generate-icons
+
+      - name: Build renderer
+        run: npm run build:renderer
+
       - name: Package
         run: npx electron-builder --publish never
 

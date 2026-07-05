@@ -14,9 +14,10 @@
     "dev:renderer": "vite build --watch",
     "build:nmrium": "bash scripts/build-nmrium.sh",
     "build:renderer": "vite build",
-    "build": "npm run build:nmrium && npm run build:renderer && electron-builder",
-    "dist": "npm run build:nmrium && npm run build:renderer && electron-builder --publish never",
-    "pack": "npm run build:nmrium && npm run build:renderer && electron-builder --dir",
+    "generate-icons": "electron scripts/generate-icons.cjs --no-sandbox",
+    "build": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder",
+    "dist": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder --publish never",
+    "pack": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder --dir",
     "update-nmrium": "bash scripts/update-nmrium.sh",
     "build:samples-archive": "bash scripts/build-samples-archive.sh",
     "build:samples-deb": "bash scripts/build-samples-deb.sh"
@@ -55,6 +56,10 @@
       {
         "from": "nmrium/src/demo/samples.json",
         "to": "samples-catalog.json"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
       }
     ],
     "fileAssociations": [
@@ -84,7 +89,10 @@
           "arch": ["x64"]
         }
       ],
-      "category": "Science;Education"
+      "category": "Science;Education",
+      "desktop": {
+        "StartupWMClass": "nmrium-desktop"
+      }
     },
     "deb": {
       "fpm": ["--deb-suggests=nmrium-desktop-samples"]
