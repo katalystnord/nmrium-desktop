@@ -16,6 +16,10 @@ flow.
 - File → Save As (`.nmrium` archive) and Export as SVG, backed by NMRium's
   own `NMRiumRefAPI` (see "Native menu" below for what is and isn't
   reachable this way).
+- File → Import Molecule… (`.mol`/`.sdf`) for NMRium's structure/atom-to-peak
+  assignment panels — e.g. a molecule exported from Ketcher. Goes through
+  the exact same delivery path as opening a spectrum; NMRium's own file
+  loader already treats molecule files as a first-class input.
 - View → Workspace menu exposing NMRium's built-in workspace presets
   (Default, 1D Processing, Prediction, Assignment, Simulation, Exercise,
   Embedded) — otherwise undiscoverable from inside the app itself.
@@ -34,9 +38,9 @@ NMRium's own `NMRiumRefAPI` (the only supported way to reach into a mounted
 `getSpectraViewerAsBlob` (SVG only, no PNG). That caps what a native menu can
 responsibly do:
 
-- **Reachable, and wired up**: Open, Open Sample, Save As, Export as SVG,
-  Workspace switching (the `workspace` prop is live-reactive — no remount
-  needed).
+- **Reachable, and wired up**: Open, Open Sample, Import Molecule, Save As,
+  Export as SVG, Workspace switching (the `workspace` prop is live-reactive —
+  no remount needed).
 - **Not reachable, so not in the menu**: Undo/Redo (NMRium has no working
   undo/redo at all, even internally — it's dead reducer scaffolding
   upstream, marked `@todo`), individual panel/toolbar-button toggles

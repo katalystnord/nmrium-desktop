@@ -142,6 +142,24 @@ async function handleOpenDialog() {
   await sendFileToRenderer(result.filePaths[0]);
 }
 
+// A molecule (e.g. exported from Ketcher) goes through the exact same
+// drop-zone delivery path as a spectrum file — NMRium's own file loader
+// already recognizes .mol/.sdf as a first-class input alongside spectra —
+// this just gives it its own discoverable menu entry instead of only being
+// reachable via Open…'s "All files" filter.
+async function handleImportMoleculeDialog() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import molecule',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Molecule', extensions: ['mol', 'sdf'] },
+      { name: 'All files', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || result.filePaths.length === 0) return;
+  await sendFileToRenderer(result.filePaths[0]);
+}
+
 function handleSaveAs() {
   if (!mainWindow) return;
   mainWindow.webContents.send('trigger-save-as', {
@@ -248,6 +266,10 @@ async function buildMenu() {
         {
           label: 'Open Sample',
           submenu: openSampleSubmenu,
+        },
+        {
+          label: 'Import Molecule…',
+          click: () => handleImportMoleculeDialog(),
         },
         { type: 'separator' },
         {
