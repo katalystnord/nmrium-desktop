@@ -61,6 +61,13 @@ jobs:
       - name: Package
         run: npx electron-builder --publish never
 
+      # Sample-data companion packages: a .deb needs dpkg-deb (Linux only),
+      # and the cross-platform .zip only needs building once, so both live
+      # on the Linux leg — same content regardless of which OS built it.
+      - name: Build sample-data packages
+        if: matrix.name == 'linux'
+        run: npm run build:samples
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -70,6 +77,7 @@ jobs:
             dist/*.deb
             dist/*.exe
             dist/*.dmg
+            dist/*.zip
           if-no-files-found: warn
 
   release:

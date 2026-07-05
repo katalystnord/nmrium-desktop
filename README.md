@@ -98,24 +98,26 @@ ethylbenzene, teaching exercises, etc. — `nmrium/public/data` and
 something you need to open your own spectra. This is most of why the
 installer is small.
 
-If you want it anyway (e.g. for the native File → Open Sample menu), there
-are two ways to get it — either works, no reinstall of the main app needed,
-just reopen it after:
+`npm run build`/`npm run dist` always produce both companion packages
+alongside the main app (`dist/nmrium-desktop-samples_<version>_all.deb` and
+`dist/nmrium-samples.zip`) — they're a permanent part of the build, not an
+opt-in extra step, so they're never at risk of getting lost in a clean
+rebuild. Installing either is still optional and separate from the main app:
 
 **Debian/Ubuntu — companion `.deb` (recommended on Linux):**
 
 ```sh
-npm run build:samples-deb          # writes dist/nmrium-desktop-samples_<version>_all.deb
 sudo apt install ./dist/nmrium-desktop-samples_2.3.0_all.deb
 ```
 
 Installs system-wide to `/usr/share/nmrium-desktop/samples`, which the app
-checks automatically.
+checks automatically. The main app's own `.deb` lists this package as a
+`Suggests`, not a `Recommends`, so a plain `apt install nmrium-desktop`
+never pulls it in automatically.
 
 **Any OS — zip, extracted per-user:**
 
 ```sh
-npm run build:samples-archive      # writes dist/nmrium-samples.zip
 unzip dist/nmrium-samples.zip -d ~/.config/nmrium-desktop/samples   # Linux
 ```
 

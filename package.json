@@ -15,10 +15,11 @@
     "build:nmrium": "bash scripts/build-nmrium.sh",
     "build:renderer": "vite build",
     "generate-icons": "electron scripts/generate-icons.cjs --no-sandbox",
-    "build": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder",
-    "dist": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder --publish never",
+    "build": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder && npm run build:samples",
+    "dist": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder --publish never && npm run build:samples",
     "pack": "npm run build:nmrium && npm run generate-icons && npm run build:renderer && electron-builder --dir",
     "update-nmrium": "bash scripts/update-nmrium.sh",
+    "build:samples": "npm run build:samples-archive && npm run build:samples-deb",
     "build:samples-archive": "bash scripts/build-samples-archive.sh",
     "build:samples-deb": "bash scripts/build-samples-deb.sh"
   },
