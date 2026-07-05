@@ -13,4 +13,7 @@ fi
 
 cd nmrium
 npm install
-npm run build
+# No `npm run build` here on purpose: that command builds NMRium's own
+# demo/docs-site app. Our renderer (../vite.config.js) instead builds a
+# thin entry point importing the NMRium library component directly from
+# this submodule's source, so all we need from it is its node_modules.

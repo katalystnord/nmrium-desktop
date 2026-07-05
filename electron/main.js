@@ -11,22 +11,39 @@ const {
 
 const APP_SCHEME = 'app';
 
-// Packaged: electron-builder's extraResources copies nmrium/build -> nmrium-dist
-// Dev: use the submodule's own build output directly.
-const NMRIUM_DIST = app.isPackaged
-  ? path.join(process.resourcesPath, 'nmrium-dist')
-  : path.join(__dirname, '..', 'nmrium', 'build');
+// Packaged: electron-builder's extraResources copies renderer/dist -> renderer-dist.
+// Dev: use our own Vite build output directly (`npm run build:renderer`).
+const RENDERER_DIST = app.isPackaged
+  ? path.join(process.resourcesPath, 'renderer-dist')
+  : path.join(__dirname, '..', 'renderer', 'dist');
+
+const SAMPLES_CATALOG_FILE = app.isPackaged
+  ? path.join(process.resourcesPath, 'samples-catalog.json')
+  : path.join(__dirname, '..', 'nmrium', 'src', 'demo', 'samples.json');
 
 // The packaged app ships without NMRium's own demo sample/teaching data
-// (nmrium/build/data, /exercises — ~250MB of the upstream demo's sample
-// catalog, not useful for opening your own real spectra) to keep install
-// size down. Users who want that data anyway can either extract
-// nmrium-samples.zip (build-samples-archive.sh) into their per-user data
-// dir, or install the nmrium-desktop-samples .deb (build-samples-deb.sh),
-// which drops it system-wide. The per-user copy wins if both are present.
+// (~250MB of the upstream demo's sample catalog, not useful for opening your
+// own real spectra) to keep install size down. Users who want that data
+// anyway can either extract nmrium-samples.zip (build-samples-archive.sh)
+// into their per-user data dir, or install the nmrium-desktop-samples .deb
+// (build-samples-deb.sh), which drops it system-wide. The per-user copy
+// wins if both are present.
 const SAMPLES_SEARCH_DIRS = [
   path.join(app.getPath('userData'), 'samples'),
   '/usr/share/nmrium-desktop/samples',
+];
+
+// Sample-catalog groups that just load a plain spectrum/state file: safe to
+// surface as a native "Open Sample" submenu. Other groups in samples.json
+// (Workspaces, Props debug, Snapshot, Plugin UI) drive NMRium's demo-only
+// React views (guided exercises, callback tests, plugin harnesses) that
+// have no native equivalent, so they're intentionally left out.
+const SAMPLE_MENU_GROUPS = [
+  'Cytisine',
+  'Simple spectra',
+  'Multiple spectra',
+  'Various formats',
+  'Simulation',
 ];
 
 protocol.registerSchemesAsPrivileged([
@@ -64,17 +81,7 @@ async function pathExists(candidate) {
 function registerAppProtocol() {
   protocol.handle(APP_SCHEME, async (request) => {
     const relativePath = resolveRequestedPath(new URL(request.url).pathname);
-
-    if (relativePath.startsWith('/data/') || relativePath.startsWith('/exercises/')) {
-      for (const dir of SAMPLES_SEARCH_DIRS) {
-        const candidate = path.join(dir, relativePath);
-        if (await pathExists(candidate)) {
-          return net.fetch(`file://${candidate}`);
-        }
-      }
-    }
-
-    return net.fetch(`file://${path.join(NMRIUM_DIST, relativePath)}`);
+    return net.fetch(`file://${path.join(RENDERER_DIST, relativePath)}`);
   });
 }
 
@@ -104,7 +111,38 @@ async function handleOpenDialog() {
   await sendFileToRenderer(result.filePaths[0]);
 }
 
-function buildMenu() {
+async function findSamplesRoot() {
+  for (const dir of SAMPLES_SEARCH_DIRS) {
+    if (await pathExists(path.join(dir, 'data'))) return dir;
+  }
+  return null;
+}
+
+async function buildOpenSampleSubmenu() {
+  const samplesRoot = await findSamplesRoot();
+  if (!samplesRoot) {
+    return [
+      {
+        label: 'Install sample data to enable…',
+        enabled: false,
+      },
+    ];
+  }
+
+  const catalog = JSON.parse(await fs.readFile(SAMPLES_CATALOG_FILE, 'utf8'));
+  return catalog
+    .filter((group) => SAMPLE_MENU_GROUPS.includes(group.groupName))
+    .map((group) => ({
+      label: group.groupName,
+      submenu: group.children.map((child) => ({
+        label: child.title,
+        click: () => sendFileToRenderer(path.join(samplesRoot, child.file.replace(/^\.\//, ''))),
+      })),
+    }));
+}
+
+async function buildMenu() {
+  const openSampleSubmenu = await buildOpenSampleSubmenu();
   const template = [
     {
       label: 'File',
@@ -113,6 +151,10 @@ function buildMenu() {
           label: 'Open…',
           accelerator: 'CmdOrCtrl+O',
           click: () => handleOpenDialog(),
+        },
+        {
+          label: 'Open Sample',
+          submenu: openSampleSubmenu,
         },
         { type: 'separator' },
         { role: 'quit' },
@@ -199,10 +241,10 @@ if (!gotLock) {
     sendFileToRenderer(filePath);
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     registerAppProtocol();
-    buildMenu();
     createWindow();
+    await buildMenu();
 
     const argvFile = pathFromArgv(process.argv);
     if (argvFile) pendingOpenPath = argvFile;

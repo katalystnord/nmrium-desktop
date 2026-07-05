@@ -1,5 +1,6 @@
 node_modules/
 dist/
 nmrium/build/
+renderer/dist/
 *.log
 .DS_Store

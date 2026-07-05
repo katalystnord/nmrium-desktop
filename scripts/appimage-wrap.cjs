@@ -27,4 +27,24 @@ module.exports = async function afterPack(context) {
     `#!/bin/sh\nexec "$(dirname "$0")/${exeName}.bin" --no-sandbox "$@"\n`,
   );
   fs.chmodSync(exePath, 0o755);
+
+  // Chromium's SUID sandbox helper is unreachable code now that we always
+  // pass --no-sandbox above (the sandbox check happens before the helper
+  // would ever run), so it's dead weight in every install.
+  const sandboxHelper = path.join(context.appOutDir, 'chrome-sandbox');
+  if (fs.existsSync(sandboxHelper)) fs.rmSync(sandboxHelper);
+
+  // Chromium's aggregated third-party OSS license text (~12MB) — purely
+  // informational, never read at runtime. License compliance for this app
+  // is handled via THIRD_PARTY_LICENSES/README instead of bundling this
+  // generated file in every install; see Chromium's own project page for
+  // its upstream license notices if needed.
+  const chromiumLicenses = path.join(context.appOutDir, 'LICENSES.chromium.html');
+  if (fs.existsSync(chromiumLicenses)) fs.rmSync(chromiumLicenses);
+
+  // NOTE: libffmpeg.so looks like an optional codec plugin but is actually
+  // a hard dynamic-link dependency of the Electron binary (DT_NEEDED, not
+  // dlopen'd) — removing it makes every launch fail immediately with
+  // "error while loading shared libraries". Confirmed by testing; do not
+  // remove despite NMRium having no <audio>/<video> usage.
 };

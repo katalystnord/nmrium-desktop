@@ -3,8 +3,8 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-if [ ! -d nmrium/build/data ] || [ ! -d nmrium/build/exercises ]; then
-  echo "nmrium/build/data or nmrium/build/exercises missing — run 'npm run build:nmrium' first." >&2
+if [ ! -d nmrium/public/data ] || [ ! -d nmrium/public/exercises ]; then
+  echo "nmrium/public/data or nmrium/public/exercises missing — check the submodule checkout." >&2
   exit 1
 fi
 
@@ -16,8 +16,12 @@ OUT="dist/nmrium-desktop-samples_${VERSION}_all.deb"
 rm -rf "$STAGING"
 mkdir -p "$STAGING/DEBIAN" "$STAGING/$INSTALL_DIR"
 
-cp -r nmrium/build/data "$STAGING/$INSTALL_DIR/"
-cp -r nmrium/build/exercises "$STAGING/$INSTALL_DIR/"
+cp -r nmrium/public/data "$STAGING/$INSTALL_DIR/"
+cp -r nmrium/public/exercises "$STAGING/$INSTALL_DIR/"
+# Excluded the same way NMRium's own build does (see its build-clean script):
+# large raw duplicates of data already covered by the processed .json samples.
+rm -f "$STAGING/$INSTALL_DIR/data/cytisine/2d/HMBC_Cytisin_RI+FT.dx"
+rm -f "$STAGING/$INSTALL_DIR/data/cytisine/2d/HSQC_Cytisin_RI+FT.dx"
 
 cat > "$STAGING/DEBIAN/control" <<EOF
 Package: nmrium-desktop-samples
