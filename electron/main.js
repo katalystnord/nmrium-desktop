@@ -133,8 +133,14 @@ async function handleOpenDialog() {
     title: 'Open spectrum',
     properties: ['openFile'],
     filters: [
-      { name: 'JCAMP-DX', extensions: ['dx', 'jdx'] },
+      {
+        name: 'All supported spectra',
+        extensions: ['dx', 'jdx', 'jcamp', 'jdf', 'nmrium', 'zip'],
+      },
+      { name: 'JCAMP-DX', extensions: ['dx', 'jdx', 'jcamp'] },
+      { name: 'JEOL Delta', extensions: ['jdf'] },
       { name: 'NMRium archive', extensions: ['nmrium'] },
+      { name: 'Zip archive (Bruker / Varian experiment)', extensions: ['zip'] },
       { name: 'All files', extensions: ['*'] },
     ],
   });
