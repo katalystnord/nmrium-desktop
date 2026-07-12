@@ -144,6 +144,11 @@ git commit -am "chore: update NMRium to vX.Y.Z"
 Upgrades are a deliberate, tested step — the submodule pointer is a commit
 SHA, not a tracked branch.
 
+`nmrium-desktop`'s own `package.json` version tracks NMRium's tag 1:1 (same
+convention as ketcher-desktop tracking Ketcher) — `update-nmrium.sh` bumps it
+automatically as part of the checkout above, so the two are always in
+lockstep and the pin is visible at a glance without opening `.gitmodules`.
+
 ## Architecture
 
 ```
