@@ -23,6 +23,10 @@ cp -r nmrium/public/exercises "$STAGING/$INSTALL_DIR/"
 rm -f "$STAGING/$INSTALL_DIR/data/cytisine/2d/HMBC_Cytisin_RI+FT.dx"
 rm -f "$STAGING/$INSTALL_DIR/data/cytisine/2d/HSQC_Cytisin_RI+FT.dx"
 
+# Our own (non-submodule) sample additions, alongside data/exercises — see
+# build-samples-archive.sh for why this needs to land at the install root.
+cp -r sample-data/lnfp3 "$STAGING/$INSTALL_DIR/"
+
 cat > "$STAGING/DEBIAN/control" <<EOF
 Package: nmrium-desktop-samples
 Version: ${VERSION}

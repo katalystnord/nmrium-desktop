@@ -24,6 +24,13 @@ const SAMPLES_CATALOG_FILE = app.isPackaged
   ? path.join(process.resourcesPath, 'samples-catalog.json')
   : path.join(__dirname, '..', 'nmrium', 'src', 'demo', 'samples.json');
 
+// Our own sample additions (not part of the submodule, so not in
+// samples.json) get their own small catalog fragment, merged with NMRium's
+// at menu-build time rather than editing the pinned submodule file.
+const EXTRA_SAMPLES_CATALOG_FILE = app.isPackaged
+  ? path.join(process.resourcesPath, 'samples-catalog-extra.json')
+  : path.join(__dirname, '..', 'sample-data', 'catalog-extra.json');
+
 // electron-builder's own generated OS icons (installer/.desktop/icon-theme)
 // aren't visible to our own running process at a predictable path, and
 // BrowserWindow needs an explicit `icon` to get a correct _NET_WM_ICON on
@@ -60,6 +67,7 @@ const SAMPLE_MENU_GROUPS = [
   'Multiple spectra',
   'Various formats',
   'Simulation',
+  'LNFP III (EuroCarbDB)',
 ];
 
 // NMRium's own built-in workspace presets (nmrium/src/component/main/types.ts)
@@ -112,6 +120,17 @@ async function pathExists(candidate) {
 function registerAppProtocol() {
   protocol.handle(APP_SCHEME, async (request) => {
     const relativePath = resolveRequestedPath(new URL(request.url).pathname);
+    // samples.json's sample objects reference sibling data with paths like
+    // "data/cytisine/1H_Cytisin_600MHz-R+I.dx", resolved client-side
+    // relative to the page URL (see renderer's onOpenSample) — matching
+    // that convention here means /data/... and /exercises/... requests
+    // need to come from the installed samples directory, not RENDERER_DIST.
+    if (relativePath.startsWith('/data/') || relativePath.startsWith('/exercises/')) {
+      const samplesRoot = await findSamplesRoot();
+      if (samplesRoot) {
+        return net.fetch(`file://${path.join(samplesRoot, relativePath)}`);
+      }
+    }
     return net.fetch(`file://${path.join(RENDERER_DIST, relativePath)}`);
   });
 }
@@ -125,6 +144,16 @@ async function sendFileToRenderer(filePath) {
   mainWindow.webContents.send('open-file', {
     name: path.basename(filePath),
     data: new Uint8Array(data),
+  });
+}
+
+// samples.json entries (unlike a dropped .zip/.dx/.nmrium file) are pointer
+// objects, not spectra themselves — the renderer has to fetch and resolve
+// them via NMRium's own core.readNMRiumObject, not the drop-zone input.
+function handleOpenSample(relPath) {
+  if (!mainWindow) return;
+  mainWindow.webContents.send('open-sample', {
+    url: `${APP_SCHEME}://bundle/${relPath}`,
   });
 }
 
@@ -180,6 +209,24 @@ function handleExportSvg() {
   mainWindow.webContents.send('trigger-export-svg');
 }
 
+// NMRium's own ref API has no "clear loaded spectra" call (only
+// loadFiles/loadFileCollection, which add), so there's no in-app way back
+// to a blank slate short of quitting — a full reload is the only reset
+// available. It's destructive and has no undo, hence the confirmation.
+async function handleCloseAll() {
+  if (!mainWindow) return;
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: ['Cancel', 'Close All'],
+    defaultId: 0,
+    cancelId: 0,
+    message: 'Close all loaded spectra?',
+    detail: 'This clears everything in the current session. Unsaved changes will be lost.',
+  });
+  if (result.response !== 1) return;
+  mainWindow.webContents.reload();
+}
+
 // The renderer computes the export up front (it's the only side that can
 // call NMRium's ref API) and hands the bytes back here; we only prompt for
 // a destination once we actually have something to write.
@@ -233,14 +280,28 @@ async function buildOpenSampleSubmenu() {
   }
 
   const catalog = JSON.parse(await fs.readFile(SAMPLES_CATALOG_FILE, 'utf8'));
-  return catalog
+  let extraCatalog = [];
+  if (await pathExists(EXTRA_SAMPLES_CATALOG_FILE)) {
+    extraCatalog = JSON.parse(
+      await fs.readFile(EXTRA_SAMPLES_CATALOG_FILE, 'utf8'),
+    );
+  }
+  return [...catalog, ...extraCatalog]
     .filter((group) => SAMPLE_MENU_GROUPS.includes(group.groupName))
     .map((group) => ({
       label: group.groupName,
-      submenu: group.children.map((child) => ({
-        label: child.title,
-        click: () => sendFileToRenderer(path.join(samplesRoot, child.file.replace(/^\.\//, ''))),
-      })),
+      submenu: group.children.map((child) => {
+        const relPath = child.file.replace(/^\.\//, '');
+        return {
+          label: child.title,
+          // .json entries are NMRium demo-style pointer objects (see
+          // handleOpenSample); everything else (our own .zip samples) is a
+          // self-contained spectrum file, same as a native Open dialog pick.
+          click: relPath.endsWith('.json')
+            ? () => handleOpenSample(relPath)
+            : () => sendFileToRenderer(path.join(samplesRoot, relPath)),
+        };
+      }),
     }));
 }
 
@@ -285,6 +346,11 @@ async function buildMenu() {
         {
           label: 'Export as SVG…',
           click: () => handleExportSvg(),
+        },
+        { type: 'separator' },
+        {
+          label: 'Close All Spectra',
+          click: () => handleCloseAll(),
         },
         { type: 'separator' },
         { role: 'quit' },
@@ -360,6 +426,12 @@ function createWindow() {
   mainWindow.loadURL(`${APP_SCHEME}://bundle/index.html`);
 
   mainWindow.webContents.on('did-finish-load', () => {
+    // A reload (whether from View > Reload or Close All) restarts the
+    // renderer's React state from scratch, so the workspace picked via the
+    // View menu — main-process state, not persisted anywhere on the
+    // renderer side — needs to be handed back or it silently reverts to
+    // "Simple NMR analysis".
+    mainWindow.webContents.send('set-workspace', currentWorkspace);
     if (pendingOpenPath) {
       const filePath = pendingOpenPath;
       pendingOpenPath = null;

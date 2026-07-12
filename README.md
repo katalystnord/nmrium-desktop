@@ -6,6 +6,8 @@ Menu / Applications entry, a File → Open dialog, `.dx`/`.jdx` file
 associations, and persistent local files — instead of a browser PWA install
 flow.
 
+![NMRium Desktop showing a loaded ¹H spectrum](docs/screenshot.png)
+
 ## Features
 
 - Native File → Open dialog and `.dx`/`.jdx` file-association double-click,

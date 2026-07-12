@@ -1,0 +1,31 @@
+[
+  {
+    "groupName": "LNFP III (EuroCarbDB)",
+    "children": [
+      {
+        "file": "./lnfp3/exp1.zip",
+        "title": "1D 1H"
+      },
+      {
+        "file": "./lnfp3/exp2.zip",
+        "title": "2D TOCSY (20ms mixing)"
+      },
+      {
+        "file": "./lnfp3/exp3.zip",
+        "title": "2D TOCSY (40ms mixing)"
+      },
+      {
+        "file": "./lnfp3/exp4.zip",
+        "title": "2D TOCSY (80ms mixing)"
+      },
+      {
+        "file": "./lnfp3/exp5.zip",
+        "title": "2D HSQC"
+      },
+      {
+        "file": "./lnfp3/exp6.zip",
+        "title": "2D HMBC"
+      }
+    ]
+  }
+]

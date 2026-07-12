@@ -59,6 +59,10 @@
         "to": "samples-catalog.json"
       },
       {
+        "from": "sample-data/catalog-extra.json",
+        "to": "samples-catalog-extra.json"
+      },
+      {
         "from": "build/icon.png",
         "to": "icon.png"
       }

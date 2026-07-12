@@ -69,6 +69,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('trigger-export-svg', () => callback()),
   onSetWorkspace: (callback) =>
     ipcRenderer.on('set-workspace', (_event, workspace) => callback(workspace)),
+  onOpenSample: (callback) =>
+    ipcRenderer.on('open-sample', (_event, payload) => callback(payload)),
   sendNmriumFileData: (buffer, fileName) =>
     ipcRenderer.send('nmrium-file-data', { buffer, fileName }),
   sendNmriumSvgData: (buffer, fileName) =>

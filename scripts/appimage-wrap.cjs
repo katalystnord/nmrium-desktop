@@ -22,9 +22,15 @@ module.exports = async function afterPack(context) {
   const realExePath = path.join(context.appOutDir, `${exeName}.bin`);
 
   fs.renameSync(exePath, realExePath);
+  // `readlink -f` resolves the symlink chain .deb installs create
+  // (/usr/bin/<name> -> /etc/alternatives/<name> -> /opt/<app>/<name>)
+  // before taking dirname — plain `dirname "$0"` would resolve to /usr/bin
+  // when launched by typed command name / from PATH, which has no .bin
+  // next to it. Launching via the .desktop file's absolute Exec= path
+  // works either way, which is why this only breaks from a terminal.
   fs.writeFileSync(
     exePath,
-    `#!/bin/sh\nexec "$(dirname "$0")/${exeName}.bin" --no-sandbox "$@"\n`,
+    `#!/bin/sh\nexec "$(dirname "$(readlink -f "$0")")/${exeName}.bin" --no-sandbox "$@"\n`,
   );
   fs.chmodSync(exePath, 0o755);
 

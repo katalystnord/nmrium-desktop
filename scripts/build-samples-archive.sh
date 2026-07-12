@@ -20,6 +20,14 @@ zip -rq "$OUT" data exercises \
   -x 'data/cytisine/2d/HSQC_Cytisin_RI+FT.dx'
 cd - > /dev/null
 
+# Our own (non-submodule) sample additions live alongside `data`/`exercises`
+# at the same archive root, e.g. sample-data/lnfp3 -> <root>/lnfp3, so
+# catalog-extra.json's "./lnfp3/..." paths resolve the same way NMRium's own
+# "./data/..." paths do.
+cd sample-data
+zip -rq "$OUT" lnfp3
+cd - > /dev/null
+
 echo "Wrote $OUT ($(du -h "$OUT" | cut -f1))"
 echo "Extract into the app's user-data 'samples' directory to enable it, e.g. on Linux:"
 echo "  unzip $OUT -d ~/.config/nmrium-desktop/samples"
