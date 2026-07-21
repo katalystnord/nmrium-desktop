@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NMRium Desktop — offline NMR spectrum viewer</title>
+<meta name="description" content="A free, open-source native desktop app for viewing and processing NMR spectra — wraps Zakodium/cheminfo's NMRium in Electron. Runs fully offline, no server, no browser.">
+<link rel="icon" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Palette lifted directly from NMRium's own brand mark (build/icon.png —
+     orange #EA580C, deep purple #2B143E) so this page reads as the same product family. */
+  :root {
+    --bg: #fdfbfa;
+    --surface: #ffffff;
+    --text: #201a26;
+    --text-dim: #5b5563;
+    --border: #e8e1e6;
+    --accent: #ea580c;
+    --accent-strong: #b6430a;
+    --accent-soft: #fdece0;
+    --accent-grad-1: #f97316;
+    --accent-grad-2: #c2410c;
+    --dark: #2b143e;
+    --code-bg: #f5f1f3;
+    --shadow: 0 1px 2px rgba(43,20,62,0.05), 0 8px 24px rgba(43,20,62,0.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #17131b;
+    --surface: #201a28;
+    --text: #f3eef5;
+    --text-dim: #b7aec0;
+    --border: #33293b;
+    --accent: #ff8a3d;
+    --accent-strong: #ffb37a;
+    --accent-soft: rgba(255,138,61,0.14);
+    --accent-grad-1: #ff8a3d;
+    --accent-grad-2: #ea580c;
+    --dark: #2b143e;
+    --code-bg: #241d2b;
+    --shadow: 0 1px 2px rgba(0,0,0,0.25), 0 8px 30px rgba(0,0,0,0.4);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17131b;
+      --surface: #201a28;
+      --text: #f3eef5;
+      --text-dim: #b7aec0;
+      --border: #33293b;
+      --accent: #ff8a3d;
+      --accent-strong: #ffb37a;
+      --accent-soft: rgba(255,138,61,0.14);
+      --accent-grad-1: #ff8a3d;
+      --accent-grad-2: #ea580c;
+      --dark: #2b143e;
+      --code-bg: #241d2b;
+      --shadow: 0 1px 2px rgba(0,0,0,0.25), 0 8px 30px rgba(0,0,0,0.4);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  a { color: var(--accent-strong); }
+
+  header.nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.05rem; }
+  .brand img { width: 28px; height: 28px; }
+  .nav-links { display: flex; gap: 28px; font-size: 0.95rem; }
+  .nav-links a { color: var(--text-dim); text-decoration: none; }
+  .nav-links a:hover { color: var(--text); }
+
+  .hero { padding: 56px 0 40px; text-align: center; position: relative; }
+  .hero-bg {
+    position: absolute;
+    top: -40px; left: 50%;
+    transform: translateX(-50%);
+    width: 1100px; max-width: none;
+    height: 480px;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.45;
+  }
+  :root[data-theme="dark"] .hero-bg { opacity: 0.3; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .hero-bg { opacity: 0.3; }
+  }
+  .hero > *:not(.hero-bg) { position: relative; z-index: 1; }
+  .hero img.logo {
+    width: 84px; height: 84px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 4.5vw, 3.1rem);
+    line-height: 1.1;
+    margin: 0 0 16px;
+    letter-spacing: -0.02em;
+  }
+  .tagline {
+    font-size: clamp(1.05rem, 2vw, 1.25rem);
+    color: var(--text-dim);
+    max-width: 640px;
+    margin: 0 auto 32px;
+  }
+  .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 13px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.98rem;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: transform 0.08s ease, box-shadow 0.15s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
+    color: #ffffff;
+    box-shadow: var(--shadow);
+  }
+  .btn-primary:hover { filter: brightness(0.96); }
+  .btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent-strong); }
+  .free-note { font-size: 0.88rem; color: var(--text-dim); }
+
+  .shot-frame {
+    margin: 48px auto 0;
+    max-width: 880px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .shot-frame img { display: block; width: 100%; height: auto; border-radius: 6px; }
+
+  section { padding: 64px 0; }
+  section + section { border-top: 1px solid var(--border); }
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 1.9rem);
+    letter-spacing: -0.01em;
+    margin: 0 0 12px;
+    text-align: center;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--text-dim);
+    max-width: 580px;
+    margin: 0 auto 40px;
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 20px;
+  }
+  .feature {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 20px;
+  }
+  .feature .icon {
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+  .feature .icon svg { width: 19px; height: 19px; }
+  .feature h3 { margin: 0 0 6px; font-size: 1.02rem; }
+  .feature p { margin: 0; color: var(--text-dim); font-size: 0.92rem; }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 22px;
+  }
+  .gallery-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 10px 16px;
+    box-shadow: var(--shadow);
+  }
+  .gallery-item .shot {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .gallery-item img { display: block; width: 100%; height: auto; }
+  .gallery-item h3 { margin: 0 6px 4px; font-size: 0.98rem; }
+  .gallery-item p { margin: 0 6px; color: var(--text-dim); font-size: 0.88rem; }
+
+  .downloads {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .dl-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    text-align: center;
+  }
+  .dl-card .plat-icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dl-card .plat-icon svg { width: 30px; height: 30px; }
+  .dl-card h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .dl-card p { margin: 0 0 16px; color: var(--text-dim); font-size: 0.85rem; }
+  .dl-card .btn { width: 100%; justify-content: center; padding: 10px 16px; font-size: 0.9rem; }
+  .dl-all { text-align: center; margin-top: 24px; font-size: 0.92rem; color: var(--text-dim); }
+
+  .credit-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 36px 32px;
+    max-width: 760px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .credit-box img.mark { display: block; margin: 0 auto 18px; width: 40px; height: 40px; }
+  .credit-box p { color: var(--text-dim); margin: 0 0 10px; }
+  .credit-box p:last-child { margin-bottom: 0; }
+  .credit-box strong { color: var(--text); }
+
+  footer {
+    padding: 40px 24px 56px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.88rem;
+  }
+  footer a { color: var(--text-dim); text-decoration: underline; text-underline-offset: 2px; }
+  footer .footer-links { margin-top: 8px; }
+  footer .footer-links a { margin: 0 10px; }
+
+  @media (max-width: 560px) {
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="brand">
+    <img src="assets/icon.png" alt="">
+    NMRium Desktop
+  </div>
+  <nav class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#gallery">Gallery</a>
+    <a href="#download">Download</a>
+    <a href="https://github.com/katalystnord/nmrium-desktop">GitHub</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <section class="hero" style="padding-top:8px;">
+    <svg class="hero-bg" viewBox="0 0 1100 480" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f97316"/>
+          <stop offset="1" stop-color="#c2410c"/>
+        </linearGradient>
+        <radialGradient id="heroFade" cx="50%" cy="30%" r="65%">
+          <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+        <mask id="heroMask">
+          <rect width="1100" height="480" fill="url(#heroFade)"/>
+        </mask>
+      </defs>
+      <!-- stylized NMR trace: baseline with a few peaks, echoing a real 1D spectrum -->
+      <g mask="url(#heroMask)" fill="none" stroke="url(#heroGrad)" stroke-width="1.6" stroke-linecap="round">
+        <path d="M40 360
+                 L300 358 L320 356 L340 355
+                 L360 300 L370 150 L380 300
+                 L400 356
+                 L470 356 L485 320 L495 356
+                 L560 356 L575 250 L585 356
+                 L650 355 L662 100 L672 355
+                 L760 356 L775 330 L785 356
+                 L1060 358"/>
+      </g>
+    </svg>
+    <img class="logo" src="assets/icon.png" alt="NMRium Desktop logo">
+    <h1>Your NMR spectra,<br>right on your desktop.</h1>
+    <p class="tagline">
+      NMRium Desktop wraps Zakodium/cheminfo's open-source NMRium viewer in a native app.
+      Open, process, and assign NMR spectra fully offline — no browser, no server, no setup.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/katalystnord/nmrium-desktop/releases">⬇ Download for free</a>
+      <a class="btn btn-secondary" href="https://github.com/katalystnord/nmrium-desktop">★ Star on GitHub</a>
+    </div>
+    <p class="free-note">Free &amp; open source, MIT &mdash; for Linux, Windows, and macOS</p>
+
+    <div class="shot-frame">
+      <img src="screenshot.png" alt="NMRium Desktop main window showing a loaded 1H spectrum">
+    </div>
+  </section>
+
+  <section id="features">
+    <h2>Everything NMRium offers, installed like an app</h2>
+    <p class="section-sub">
+      All the processing power of the web-based NMRium viewer, packaged so chemists who don't
+      want a browser tab or an install-and-pray PWA flow can just double-click and open a spectrum.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+        <h3>Native File → Open</h3>
+        <p>Real Open/Save dialogs and .dx/.jdx file associations &mdash; double-click a spectrum to open it.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
+        <h3>Raw vendor formats</h3>
+        <p>Bruker, JEOL, and Varian/Agilent import, alongside JCAMP-DX &mdash; not just one file type.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div>
+        <h3>Full processing core</h3>
+        <p>Auto-phase correction, five baseline algorithms, linear prediction, and Levenberg-Marquardt peak fitting.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1"/></svg></div>
+        <h3>Prediction &amp; simulation</h3>
+        <p>Structure-based 1D/2D prediction (¹H, ¹³C, COSY, HSQC, HMBC) plus a full spin-system simulator.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+        <h3>Import Molecule</h3>
+        <p>Bring in a .mol/.sdf structure (e.g. from Ketcher) for atom-to-peak assignment.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h7"/></svg></div>
+        <h3>Workspace presets</h3>
+        <p>Switch between Default, 1D Processing, Prediction, Assignment, Simulation, and more.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <h3>Fully offline</h3>
+        <p>No server, no browser install flow &mdash; your spectra and files never leave your machine.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></div>
+        <h3>Unmodified upstream</h3>
+        <p>Built from NMRium's own pinned source &mdash; same processing and rendering logic, no forks.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="gallery">
+    <h2>See it in action</h2>
+    <p class="section-sub">A few corners of the app, straight from a real running build.</p>
+    <div class="gallery">
+      <div class="gallery-item">
+        <div class="shot"><img src="assets/shots/spectrum.png" alt="A 1H NMR spectrum of coffee opened directly from the command line / file association" loading="lazy"></div>
+        <h3>Open and view instantly</h3>
+        <p>Double-click a file, or pass it on launch &mdash; it's on screen in seconds.</p>
+      </div>
+      <div class="gallery-item">
+        <div class="shot"><img src="assets/shots/workspace.png" alt="The workspace switcher showing Simple NMR analysis, 1D multiple spectra analysis, and NMR spectra assignment presets" loading="lazy"></div>
+        <h3>Workspace presets</h3>
+        <p>Jump between curated NMRium workspaces from a native dropdown.</p>
+      </div>
+      <div class="gallery-item">
+        <div class="shot"><img src="assets/shots/empty-state.png" alt="The empty state showing supported drag-and-drop formats: JCAMP-DX, Bruker folder, Jeol jdf, or NMRium file" loading="lazy"></div>
+        <h3>Broad format support</h3>
+        <p>JCAMP-DX, Bruker folders, JEOL jdf, or a saved .nmrium archive &mdash; drag, drop, done.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <h2>Download</h2>
+    <p class="section-sub">Pick your platform. Builds are currently unsigned, so expect a SmartScreen or Gatekeeper warning on first launch.</p>
+    <div class="downloads">
+      <div class="dl-card">
+        <div class="plat-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <ellipse cx="12" cy="14.5" rx="6" ry="7"/>
+            <circle cx="12" cy="6" r="4"/>
+            <ellipse cx="12" cy="15.5" rx="3" ry="5" fill="var(--accent-soft)"/>
+            <circle cx="10.3" cy="5.5" r="0.7" fill="var(--accent-soft)"/>
+            <circle cx="13.7" cy="5.5" r="0.7" fill="var(--accent-soft)"/>
+            <ellipse cx="9" cy="21.3" rx="1.9" ry="0.9"/>
+            <ellipse cx="15" cy="21.3" rx="1.9" ry="0.9"/>
+          </svg>
+        </div>
+        <h3>Linux</h3>
+        <p>AppImage or .deb package</p>
+        <a class="btn btn-primary" href="https://github.com/katalystnord/nmrium-desktop/releases">Download</a>
+      </div>
+      <div class="dl-card">
+        <div class="plat-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="2" y="2" width="9" height="9" rx="1"/>
+            <rect x="13" y="2" width="9" height="9" rx="1"/>
+            <rect x="13" y="13" width="9" height="9" rx="1"/>
+            <rect x="2" y="13" width="9" height="9" rx="1"/>
+          </svg>
+        </div>
+        <h3>Windows</h3>
+        <p>NSIS installer (.exe)</p>
+        <a class="btn btn-primary" href="https://github.com/katalystnord/nmrium-desktop/releases">Download</a>
+      </div>
+      <div class="dl-card">
+        <div class="plat-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12.9 7.4c-.9 0-1.9.5-2.5.5-.6 0-1.5-.5-2.4-.5-1.9 0-3.9 1.6-3.9 4.9 0 2.1.8 4.4 1.8 5.9.9 1.3 1.7 2.4 2.9 2.4 1.1 0 1.6-.7 2.9-.7 1.3 0 1.7.7 2.9.7 1.2 0 2-1.1 2.7-2.2.5-.8.8-1.3 1.1-2.1-2.8-1.1-3.3-4.9-.5-6.6-.8-1.1-2.1-1.7-3.1-1.7z"/>
+            <path d="M12.7 6.3c.5-.6.9-1.5.8-2.3-.7 0-1.6.5-2.1 1.1-.5.5-.9 1.4-.8 2.2.8.1 1.6-.4 2.1-1z"/>
+          </svg>
+        </div>
+        <h3>macOS</h3>
+        <p>DMG disk image</p>
+        <a class="btn btn-primary" href="https://github.com/katalystnord/nmrium-desktop/releases">Download</a>
+      </div>
+    </div>
+    <p class="dl-all">All installers are published on the <a href="https://github.com/katalystnord/nmrium-desktop/releases">GitHub Releases page</a>. Optional sample/teaching data ships as a separate companion package &mdash; see the README.</p>
+  </section>
+
+  <section>
+    <h2>Free, open, and built on NMRium</h2>
+    <div class="credit-box">
+      <img class="mark" src="assets/icon.png" alt="NMRium logo">
+      <p>
+        NMRium Desktop is a desktop spectrum viewer, lovingly built on top of
+        <strong>NMRium</strong>, the excellent open-source NMR processing component
+        built and maintained by <strong>Zakodium</strong>/cheminfo, with EU Horizon 2020
+        grant funding.
+      </p>
+      <p>
+        All of the actual chemistry &mdash; processing, prediction, assignment, rendering &mdash;
+        is NMRium, built from its own pinned source, unmodified. This project just makes it
+        installable, offline, and file-association-friendly for chemists who'd rather not run
+        a browser tab.
+      </p>
+      <p>
+        Thank you to the Zakodium/cheminfo team for building and open-sourcing NMRium under
+        the MIT license. Bug reports, ideas, and contributions are always welcome.
+      </p>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div>NMRium Desktop is free and open source under the MIT License.</div>
+  <div class="footer-links">
+    <a href="https://github.com/katalystnord/nmrium-desktop">GitHub</a>
+    <a href="https://github.com/cheminfo/nmrium">NMRium (upstream)</a>
+    <a href="https://github.com/katalystnord/nmrium-desktop/issues">Report an issue</a>
+  </div>
+  <div style="margin-top:10px;">Built by <a href="https://katalystnord.com">David, Katalyst Nord</a></div>
+</footer>
+
+</body>
+</html>
