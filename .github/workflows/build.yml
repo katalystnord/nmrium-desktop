@@ -49,6 +49,14 @@ jobs:
       - name: Install desktop dependencies
         run: npm ci
 
+      # `npm run build` gates on this, but CI calls electron-builder directly,
+      # so the guard needs its own step or a drifted version ships unnoticed.
+      - name: Check the version matches the bundled NMRium
+        run: npm run check-version
+
+      - name: Run wrapper tests
+        run: npm test
+
       - name: Build NMRium
         run: bash scripts/build-nmrium.sh
 

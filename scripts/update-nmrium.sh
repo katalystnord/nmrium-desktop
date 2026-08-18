@@ -25,20 +25,30 @@ cd ..
 
 git add nmrium
 
-# The wrapper's own version has tracked NMRium's tag 1:1 so far (both at
-# 2.3.0) — keep that convention so the pin is visible at a glance without
-# opening .gitmodules.
-NEW_VERSION="${TAG#v}"
-npm pkg set version="$NEW_VERSION"
+# The wrapper's version is derived from the submodule, never hand-written —
+# see CONTRIBUTING.md → Versioning. sync-version reads it out of the freshly
+# checked-out nmrium/package.json; check-version then asserts the two agree,
+# which is the same gate the build and CI run.
+npm run sync-version
+npm run check-version
 git add package.json package-lock.json 2>/dev/null || git add package.json
 
-cat <<EOF
+NEW_VERSION="$(node -p "require('./package.json').version")"
+
+cat <<MSG
 
 Submodule pointer staged at $TAG, wrapper version set to $NEW_VERSION.
-Next steps (manual, on purpose — see CLAUDE.md):
-  1. npm run build:nmrium && npm run dist
-  2. Smoke-test the rebuilt app for real (open a spectrum, check for
+
+The daily Sync NMRium workflow does all of the above unattended for tagged
+upstream releases; run this by hand when you want to move early, land on an
+untagged commit, or test a bump before CI does.
+
+Next steps (manual, on purpose — see CONTRIBUTING.md):
+  1. npm test && npm run test:nmrium
+  2. npm run build:nmrium && npm run dist
+  3. Smoke-test the rebuilt app for real (open a spectrum, check for
      upstream breaking changes in NMRiumRefAPI/menus/workspaces).
-  3. git commit -m "Update NMRium to $TAG"
-  4. git tag $TAG && git push origin master $TAG
-EOF
+  4. Add a CHANGELOG.md entry for $NEW_VERSION.
+  5. git commit -m "chore: update NMRium to $TAG"
+  6. git tag v$NEW_VERSION && git push origin master --follow-tags
+MSG

@@ -12,7 +12,11 @@ if [ "$NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
 fi
 
 cd nmrium
-npm install
+# `npm ci`, not `npm install`: it installs exactly the committed lockfile and
+# never rewrites it. `npm install` re-resolves against package.json, so a build
+# from a given pin could silently differ from the one CI produced from the same
+# pin — which defeats the point of pinning the submodule in the first place.
+npm ci
 # No `npm run build` here on purpose: that command builds NMRium's own
 # demo/docs-site app. Our renderer (../vite.config.js) instead builds a
 # thin entry point importing the NMRium library component directly from

@@ -1,0 +1,98 @@
+name: Sync NMRium
+
+# Tracking upstream, without giving up a reproducible pin. A git submodule
+# always records one exact commit — that is what makes a released build
+# checkoutable and rebuildable a year later. This job is what moves that
+# record: it checks cheminfo/nmrium's latest release daily, bumps the pin,
+# syncs the version, and pushes a tag, which trips the Build workflow into a
+# draft release. Manual submodule bumps stay possible; they are just no longer
+# the only way upstream progress reaches this repo.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+  workflow_dispatch:      # Allow manual trigger from Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout (with submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # PAT required so the tag push triggers the build workflow
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Get latest stable NMRium release
+        id: upstream
+        run: |
+          TAG=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/cheminfo/nmrium/releases/latest \
+            | jq -r '.tag_name')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest upstream NMRium: $TAG"
+
+      - name: Get current submodule tag
+        id: current
+        run: |
+          TAG=$(git -C nmrium describe --tags --exact-match 2>/dev/null \
+                || git -C nmrium rev-parse --short HEAD)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Current submodule: $TAG"
+
+      - name: Skip if already up to date
+        if: steps.upstream.outputs.tag == steps.current.outputs.tag
+        run: |
+          echo "Already at ${{ steps.upstream.outputs.tag }} — nothing to do."
+
+      - name: Update submodule to new release
+        if: steps.upstream.outputs.tag != steps.current.outputs.tag
+        run: |
+          git -C nmrium fetch --tags origin
+          git -C nmrium checkout ${{ steps.upstream.outputs.tag }}
+          git add nmrium
+
+      - name: Set up Node 24
+        if: steps.upstream.outputs.tag != steps.current.outputs.tag
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Sync desktop version from NMRium
+        if: steps.upstream.outputs.tag != steps.current.outputs.tag
+        run: |
+          npm run sync-version
+          npm run check-version
+          git add package.json
+
+      - name: Commit, tag, and push
+        if: steps.upstream.outputs.tag != steps.current.outputs.tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          NMRIUM_TAG="${{ steps.upstream.outputs.tag }}"
+          DESKTOP_VERSION=$(node -p "require('./package.json').version")
+          DESKTOP_TAG="v${DESKTOP_VERSION}"
+
+          # Only commit if there are staged changes (avoids empty-commit error on re-runs)
+          if git diff --cached --quiet; then
+            echo "Nothing staged — submodule+version already at ${NMRIUM_TAG}, skipping commit."
+          else
+            git commit -m "chore: update NMRium to ${NMRIUM_TAG}"
+          fi
+
+          # Only push the tag if it doesn't already exist remotely
+          if git ls-remote --tags origin "refs/tags/${DESKTOP_TAG}" | grep -q "${DESKTOP_TAG}"; then
+            echo "Tag ${DESKTOP_TAG} already exists — pushing master only."
+            git push origin master
+          else
+            git tag "${DESKTOP_TAG}"
+            git push origin master --follow-tags
+            echo "Pushed ${DESKTOP_TAG} — build workflow will create the draft release."
+          fi

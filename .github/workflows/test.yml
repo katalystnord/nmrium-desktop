@@ -1,0 +1,72 @@
+name: Tests
+
+on:
+  push:
+    branches: [master, 'release/**']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  wrapper:
+    name: Wrapper scripts
+    runs-on: ubuntu-latest
+    steps:
+      # No submodule, no npm install: these tests run the code in scripts/ and
+      # the config in electron/ against throwaway fixture trees using Node's
+      # built-in test runner, so they need neither the NMRium checkout (~275 MB,
+      # mostly demo spectra) nor any dependency. The one test that does read the
+      # submodule skips itself when it is absent — the nmrium job below checks
+      # it out and runs the same suite with it present.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run wrapper tests
+        run: npm test
+
+  nmrium:
+    name: NMRium unit tests
+    runs-on: ubuntu-latest
+    # Upstream's own suite, plus the wrapper tests that need the submodule
+    # present. This is what tells us whether an upstream bump is safe to ship
+    # before we find out from a user.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Cache NMRium node_modules
+        uses: actions/cache@v4
+        with:
+          path: nmrium/node_modules
+          key: ${{ runner.os }}-nmrium-${{ hashFiles('nmrium/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-nmrium-
+
+      - name: Check the version matches the bundled NMRium
+        run: npm run check-version
+
+      - name: Run wrapper tests against the real submodule
+        # Same suite as the wrapper job, but the workspace-id check now has
+        # NMRium's types.ts to compare against instead of skipping.
+        run: npm test
+
+      - name: Install NMRium dependencies
+        # `npm ci` from inside the submodule, matching scripts/build-nmrium.sh:
+        # it installs exactly the committed lockfile and never rewrites it.
+        run: cd nmrium && npm ci
+
+      - name: Run NMRium unit tests
+        # test-only (vitest) rather than upstream's full `test` script. That one
+        # also runs check-types, eslint, prettier, stylelint, knip, a no-minify
+        # build and the Playwright e2e suite — upstream's own gates on
+        # upstream's own tree, which say nothing about whether this wrapper
+        # ships a working app. What we need to know is whether the library still
+        # behaves.
+        run: npm run test:nmrium

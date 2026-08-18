@@ -1,0 +1,84 @@
+Third-party licenses
+====================
+
+NMRium Desktop is an Electron wrapper. The scientific software it ships — the
+spectrum viewer and everything that processes or renders NMR data — is NMRium,
+which is not our work. This file records the licenses of the components
+distributed in the installers and packages built from this repository.
+
+
+NMRium
+------
+
+Homepage:  https://www.nmrium.org
+Source:    https://github.com/cheminfo/nmrium
+Authors:   Zakodium Sàrl / cheminfo (Institute of Chemical Sciences and
+           Engineering, EPFL), with support from EU Horizon 2020 grant funding.
+Version:   see the `nmrium` submodule pointer, which matches this project's
+           version number exactly (see CONTRIBUTING.md → Versioning).
+
+Bundled and unmodified. NMRium's own processing and rendering logic is not
+patched by this wrapper.
+
+License text, verbatim from the pinned NMRium checkout:
+
+    The MIT License (MIT)
+    
+    Copyright (c) 2021 ChemInfo
+    
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+    
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+    
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+
+Electron
+--------
+
+Homepage:  https://www.electronjs.org
+Source:    https://github.com/electron/electron
+License:   MIT (Electron itself), plus the licenses of Chromium, Node.js and
+           their own bundled third-party components.
+
+Chromium's aggregated third-party license text (LICENSES.chromium.html, ~12 MB
+of generated notices) is removed from Linux packages by
+scripts/appimage-wrap.cjs — it is purely informational and never read at
+runtime. It is available in full from the Chromium project, and from any
+unmodified Electron distribution of the same version.
+
+
+NMRium Desktop
+--------------
+
+The Electron shell in this repository — the main process, window and menu
+handling, native file dialogs, file associations, packaging configuration,
+sample-data companion packages and build scripts — is original work, licensed
+under the MIT License. See LICENSE.
+
+
+Sample data
+-----------
+
+The optional sample-data packages (nmrium-samples.zip and the
+nmrium-desktop-samples .deb) redistribute NMRium's own demo and teaching
+dataset from the pinned submodule, under the same MIT license as NMRium above.
+
+The LNFP III dataset under sample-data/lnfp3 originates from the EuroCarbDB /
+CCPN "NMR software" sample CD (2007), credited to Bas Leeflang. See
+sample-data/lnfp3/README.md for its provenance. That distribution did not
+carry an explicit license statement; it is redistributed here as freely
+distributed teaching data, credited to its originators. Contact us if you are
+a rights holder and would like it removed.
