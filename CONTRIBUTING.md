@@ -51,6 +51,7 @@ npm start
 | `npm run dist` | Full build: renderer + electron-builder packages + sample-data packages |
 | `npm run update-nmrium` | Bump the submodule to an upstream tag and sync the version |
 | `npm test` | Wrapper test suite (Node's built-in runner, no dependencies) |
+| `npm run test:mutation` | Mutation gate — fails if any wrapper test is vacuous |
 | `npm run test:nmrium` | NMRium's own unit tests, against the pinned submodule |
 | `npm run check-version` | Assert the wrapper version matches the bundled NMRium |
 | `npm run sync-version` | Set the wrapper version from the bundled NMRium |
@@ -72,13 +73,21 @@ is not the same thing as ignoring upstream:
   build on a bump commit, not as a broken app in a user's hands.
 
 Tracking upstream is handled by *moving* the pin, not by removing it. The
-**Sync NMRium** workflow checks `cheminfo/nmrium`'s latest release every day at
-06:00 UTC, bumps the submodule, syncs the version, and pushes a tag — which
-trips the Build workflow into a draft release. `npm run update-nmrium` does the
-same thing by hand when you want to move early or land on an untagged commit.
+**Sync NMRium** workflow bumps the submodule to each new upstream release, syncs
+the version, and pushes a tag — which trips the Build workflow into a draft
+release.
 
-Requires a `GH_PAT` repository secret with `contents: write`; without it the
-tag push will not trigger the build workflow.
+**Its daily schedule is currently paused.** It needs a `GH_PAT` repository
+secret with `contents: write`, because a tag pushed with the default
+`GITHUB_TOKEN` does not trigger the build workflow, and that secret is not set
+up yet. Left scheduled it would fail every morning, so the `schedule` block is
+commented out in `.github/workflows/sync-nmrium.yml`; `workflow_dispatch` still
+works. To enable it: add the secret, uncomment the block, and confirm with one
+manual run.
+
+Until then, upstream tracking is manual: `npm run update-nmrium` does the same
+work, and is also what you want when moving early or landing on an untagged
+commit.
 
 ## Versioning
 
@@ -123,6 +132,25 @@ What it covers, and why each one is there:
 These are the failure modes that do not announce themselves. A broken sample
 entry is a menu item that does nothing when clicked; a stale workspace id
 silently falls back to the default. Both shipped at least once.
+
+### Mutation testing
+
+`npm run test:mutation` is a gate, not a report. Stryker introduces one
+deliberate defect at a time into the mutated files and requires a test to fail;
+a surviving mutant is a line the suite executes but does not actually pin. The
+threshold is set to **break below 100%**, so a survivor fails CI rather than
+quietly lowering a number nobody reads.
+
+`stryker.conf.mjs` mutates `scripts/*.cjs` by glob rather than a hand-kept
+list, so a newly added script is covered by default — adding one means writing
+tests for it, or excluding it there with a stated reason. `generate-icons.cjs`
+is the one exclusion: it runs under Electron for `nativeImage` and does its work
+at import time, so it cannot easily be unit tested.
+
+Be clear-eyed about scope. It covers the wrapper scripts, which is a small
+fraction of the code that ships; `electron/main.js` has no unit tests, so it
+produces no mutants and does not affect the score. A 100% result means *the
+tests that exist are honest*, not that the app is well tested.
 
 `npm run test:nmrium` runs NMRium's own vitest suite against the pinned
 submodule. Be aware of what that is and is not: as of v2.5.0 it is 13 tests

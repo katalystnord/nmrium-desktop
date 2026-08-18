@@ -26,12 +26,14 @@
     "build:samples-deb": "bash scripts/build-samples-deb.sh",
     "test": "node --test tests/*.test.mjs",
     "test:nmrium": "cd nmrium && npm run test-only",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "test:mutation": "stryker run"
   },
   "devDependencies": {
     "@blueprintjs/core": "^6.16.0",
     "@blueprintjs/icons": "^6.11.0",
     "@blueprintjs/select": "^6.3.0",
+    "@stryker-mutator/core": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.3",
     "electron": "^43.0.0",
     "electron-builder": "^26.15.3",

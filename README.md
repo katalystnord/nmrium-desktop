@@ -56,6 +56,48 @@ responsibly do:
   deliberately have **no** accelerator to avoid an untested collision with
   NMRium's own in-page listeners for those same combinations.
 
+## Installing (Linux)
+
+Two Linux downloads are published per release. **Prefer the `.deb`** on Debian,
+Ubuntu and derivatives:
+
+```sh
+sudo dpkg -i nmrium-desktop_<version>_amd64.deb
+```
+
+It has no runtime dependency beyond what the package declares, registers the
+`.dx`/`.jdx` file associations, and puts NMRium Desktop in the applications
+menu.
+
+### The AppImage needs FUSE 2
+
+The AppImage is the portable option — no install, just mark it executable and
+run it — but it will refuse to start on most current distributions with:
+
+```
+dlopen(): error loading libfuse.so.2
+
+AppImages require FUSE to run.
+```
+
+This is not a problem with the app. AppImage's runtime links against FUSE 2,
+while Ubuntu 24.04+, Debian 13+ and recent Fedora ship only FUSE 3. Either
+install the compatibility package:
+
+```sh
+sudo apt install libfuse2t64      # Ubuntu 24.04+ / Debian 13+
+sudo apt install libfuse2         # older releases, where the package kept that name
+```
+
+...or skip FUSE entirely and run the payload directly:
+
+```sh
+./NMRium\ Desktop-<version>.AppImage --appimage-extract-and-run
+```
+
+If you are choosing for someone else — a shared lab machine, a student's
+laptop — install the `.deb`. It sidesteps this whole class of problem.
+
 ## Requirements
 
 - Node.js **24** (see `.nvmrc`) — matches the Node version NMRium itself
@@ -134,12 +176,11 @@ copy first, then the system-wide `.deb` install, then falls back to the
 
 ## Updating NMRium
 
-Upstream is tracked automatically. The **Sync NMRium** workflow checks
-`cheminfo/nmrium` for a new release daily at 06:00 UTC, moves the submodule pin,
-syncs the version, and pushes a tag — which builds a draft release. Nothing here
-waits on someone remembering to bump it.
-
-To move early, land on an untagged commit, or test a bump before CI does:
+A **Sync NMRium** workflow can track upstream automatically — moving the
+submodule pin to each new release, syncing the version, and pushing a tag that
+builds a draft release. **Its schedule is currently paused** pending a `GH_PAT`
+secret; see [CONTRIBUTING.md](CONTRIBUTING.md#why-nmrium-is-a-pinned-submodule).
+Until it is enabled, bump upstream by hand:
 
 ```sh
 npm run update-nmrium            # checks out the latest vX.Y.Z tag, syncs the version

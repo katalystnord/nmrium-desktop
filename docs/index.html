@@ -212,6 +212,17 @@
   .gallery-item h3 { margin: 0 6px 4px; font-size: 0.98rem; }
   .gallery-item p { margin: 0 6px; color: var(--text-dim); font-size: 0.88rem; }
 
+  .dl-note {
+    margin-top: .85rem;
+    font-size: .8rem;
+    line-height: 1.5;
+    opacity: .72;
+    text-align: left;
+  }
+  .dl-note code {
+    font-size: .95em;
+    word-break: break-word;
+  }
   .downloads {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -417,8 +428,12 @@
           </svg>
         </div>
         <h3>Linux</h3>
-        <p>AppImage or .deb package</p>
+        <p>.deb package &mdash; recommended</p>
         <a class="btn btn-primary" href="https://github.com/katalystnord/nmrium-desktop/releases">Download</a>
+        <p class="dl-note">An AppImage is published too, but it needs FUSE&nbsp;2, which current
+        distributions no longer ship. If it exits with <code>error loading libfuse.so.2</code>,
+        install <code>libfuse2t64</code> or run it with <code>--appimage-extract-and-run</code>.
+        The <code>.deb</code> has no such requirement.</p>
       </div>
       <div class="dl-card">
         <div class="plat-icon">

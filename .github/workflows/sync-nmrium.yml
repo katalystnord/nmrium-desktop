@@ -8,10 +8,20 @@ name: Sync NMRium
 # draft release. Manual submodule bumps stay possible; they are just no longer
 # the only way upstream progress reaches this repo.
 
+# PAUSED. The daily schedule is commented out on purpose: this workflow needs a
+# `GH_PAT` repository secret with `contents: write` (a tag pushed with the
+# default GITHUB_TOKEN does not trigger the build workflow), and that secret is
+# not set up yet. Left enabled it would simply fail every morning and train
+# everyone to ignore the notification.
+#
+# To switch it on: add the GH_PAT secret, uncomment the `schedule` block below,
+# and confirm with one manual run from the Actions tab.
+#
+# Until then, upstream tracking is manual: `npm run update-nmrium`.
 on:
-  schedule:
-    - cron: '0 6 * * *'  # Daily at 06:00 UTC
-  workflow_dispatch:      # Allow manual trigger from Actions tab
+  # schedule:
+  #   - cron: '0 6 * * *'  # Daily at 06:00 UTC
+  workflow_dispatch:      # Manual trigger from the Actions tab (still works)
 
 jobs:
   sync:
