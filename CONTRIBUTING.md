@@ -154,22 +154,25 @@ produces no mutants and does not affect the score. A 100% result means *the
 tests that exist are honest*, not that the app is well tested.
 
 `npm run test:nmrium` runs NMRium's own vitest suite against the pinned
-submodule. Be aware of what that is and is not: as of v2.5.0 it is 13 tests
-across 7 files, covering peak-picking and range utilities. It catches an
-upstream bump that breaks those, and nothing else. Most of upstream's real
-coverage lives in their Playwright suite, which we do not run — it needs a full
-demo build and a browser, and it exercises upstream's demo app rather than this
-wrapper.
+submodule. Be precise about what that is: at v2.5.0 it is 13 tests across 7
+files, covering peak-picking and range utilities.
 
-It deliberately does not run upstream's full `test` script either, which adds
-their lint, type-check, prettier, stylelint and knip gates. Those are upstream's
-gates on upstream's tree and say nothing about whether this wrapper ships a
-working app.
+**That number is not a verdict on NMRium's testing, and should not be read as
+one.** Upstream's real coverage is a Playwright suite — 46 tests across 13
+files, run against three browsers, driving genuine spectrometer data (there are
+real Bruker `fid` files committed under `test-e2e/data/`). Their own `test`
+script also gates on type-checking, eslint, prettier, stylelint, knip
+(dead-code) and cspell. For an 88k-line scientific codebase that is a stricter
+gate set than most commercial projects apply, and stricter than this wrapper's.
 
-So an upstream bump is still not safe on CI alone. Smoke-test the built app —
-open a spectrum, open a sample, switch workspaces, export — before promoting the
-draft release. That is the real gate, and automating it is the obvious next
-piece of work here.
+We do not run the e2e suite here: it needs a full demo build plus browsers, and
+it tests upstream's tree rather than this wrapper. That is a decision about
+scope and cost, not a judgement about quality.
+
+So an upstream bump is still not safe on our CI alone, because our CI runs the
+*smaller* half of upstream's testing. Run `npm run smoke` against the rebuilt
+app, then open a spectrum by hand — load a sample, switch workspaces, export —
+before promoting a draft release.
 
 `npm run smoke` drives the real packaged-code paths through Playwright: it
 launches the app, loads a spectrum the same way File → Open does, exports it as
