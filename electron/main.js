@@ -1,5 +1,11 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const { pathToFileURL } = require('node:url');
+const {
+  resolveRequestedPath,
+  resolveWithinRoot,
+  pathFromArgv,
+} = require('./url-paths.cjs');
 const {
   app,
   BrowserWindow,
@@ -100,14 +106,6 @@ let mainWindow = null;
 let pendingOpenPath = null;
 let currentWorkspace = 'default';
 
-function resolveRequestedPath(pathname) {
-  let relativePath = decodeURIComponent(pathname);
-  if (relativePath === '' || relativePath === '/') {
-    relativePath = '/index.html';
-  }
-  return relativePath;
-}
-
 async function pathExists(candidate) {
   try {
     await fs.access(candidate);
@@ -120,31 +118,56 @@ async function pathExists(candidate) {
 function registerAppProtocol() {
   protocol.handle(APP_SCHEME, async (request) => {
     const relativePath = resolveRequestedPath(new URL(request.url).pathname);
+    if (relativePath === null) return new Response('Bad request', { status: 400 });
+
     // samples.json's sample objects reference sibling data with paths like
     // "data/cytisine/1H_Cytisin_600MHz-R+I.dx", resolved client-side
     // relative to the page URL (see renderer's onOpenSample) — matching
     // that convention here means /data/... and /exercises/... requests
     // need to come from the installed samples directory, not RENDERER_DIST.
+    let root = RENDERER_DIST;
     if (relativePath.startsWith('/data/') || relativePath.startsWith('/exercises/')) {
       const samplesRoot = await findSamplesRoot();
-      if (samplesRoot) {
-        return net.fetch(`file://${path.join(samplesRoot, relativePath)}`);
-      }
+      if (samplesRoot) root = samplesRoot;
     }
-    return net.fetch(`file://${path.join(RENDERER_DIST, relativePath)}`);
+
+    // Containment is enforced here rather than trusted: `new URL()` normalises
+    // literal ../ away but leaves percent-encoded ../ intact, so decoding can
+    // reintroduce traversal after the parser has already "cleaned" the path.
+    // resolveWithinRoot returns null instead of clamping, so a request that
+    // tried to leave the root fails visibly rather than silently serving
+    // something else. See tests/url-paths.test.mjs.
+    const target = resolveWithinRoot(root, relativePath);
+    if (target === null) return new Response('Forbidden', { status: 403 });
+
+    // pathToFileURL, not string concatenation: a path containing # or ? would
+    // otherwise be parsed as a fragment or query and resolve to the wrong file.
+    return net.fetch(pathToFileURL(target).toString());
   });
 }
 
+// Never rejects: it is called from menu clicks and app events that have no
+// error handling of their own, where an unhandled rejection would leave the
+// user staring at a menu item that silently did nothing.
 async function sendFileToRenderer(filePath) {
   if (!mainWindow) {
     pendingOpenPath = filePath;
     return;
   }
-  const data = await fs.readFile(filePath);
-  mainWindow.webContents.send('open-file', {
-    name: path.basename(filePath),
-    data: new Uint8Array(data),
-  });
+  try {
+    const data = await fs.readFile(filePath);
+    mainWindow.webContents.send('open-file', {
+      name: path.basename(filePath),
+      data: new Uint8Array(data),
+    });
+  } catch (error) {
+    await dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Could not open file',
+      message: `Could not open ${path.basename(filePath)}`,
+      detail: String(error?.message ?? error),
+    });
+  }
 }
 
 // samples.json entries (unlike a dropped .zip/.dx/.nmrium file) are pointer
@@ -230,33 +253,53 @@ async function handleCloseAll() {
 // The renderer computes the export up front (it's the only side that can
 // call NMRium's ref API) and hands the bytes back here; we only prompt for
 // a destination once we actually have something to write.
+// Only our own renderer may drive these. Without the check any frame that
+// ended up in this webContents could ask the main process to write a file.
+function isTrustedSender(event) {
+  const url = event.senderFrame?.url ?? '';
+  return url.startsWith(`${APP_SCHEME}://`);
+}
+
+// A renderer-supplied filename becomes the save dialog's default path, so it
+// must not be able to steer that to another directory — the user still
+// confirms, but the prompt should not arrive pre-aimed somewhere unexpected.
+function safeDefaultName(fileName, fallback) {
+  if (typeof fileName !== 'string' || fileName.length === 0) return fallback;
+  const base = path.basename(fileName);
+  return base === '' || base === '.' || base === '..' ? fallback : base;
+}
+
 function registerExportIpcHandlers() {
-  ipcMain.on('nmrium-file-data', async (_event, { buffer, fileName }) => {
+  ipcMain.on('nmrium-file-data', async (event, { buffer, fileName }) => {
+    if (!isTrustedSender(event)) return;
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Save NMRium experiment',
-      defaultPath: fileName,
+      defaultPath: safeDefaultName(fileName, 'experiment.nmrium'),
       filters: [{ name: 'NMRium archive', extensions: ['nmrium'] }],
     });
     if (result.canceled || !result.filePath) return;
     await fs.writeFile(result.filePath, Buffer.from(buffer));
   });
 
-  ipcMain.on('nmrium-svg-data', async (_event, { buffer, fileName }) => {
+  ipcMain.on('nmrium-svg-data', async (event, { buffer, fileName }) => {
+    if (!isTrustedSender(event)) return;
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Export spectrum as SVG',
-      defaultPath: fileName,
+      defaultPath: safeDefaultName(fileName, 'spectrum.svg'),
       filters: [{ name: 'SVG image', extensions: ['svg'] }],
     });
     if (result.canceled || !result.filePath) return;
     await fs.writeFile(result.filePath, Buffer.from(buffer));
   });
 
-  ipcMain.on('nmrium-action-error', (_event, message) => {
-    if (!mainWindow) return;
+  ipcMain.on('nmrium-action-error', (event, message) => {
+    if (!isTrustedSender(event) || !mainWindow) return;
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Nothing to export',
-      message,
+      // Coerced and capped: this string is rendered in a native dialog, and a
+      // renderer should not be able to fill the screen with one.
+      message: String(message).slice(0, 500),
     });
   });
 }
@@ -299,7 +342,7 @@ async function buildOpenSampleSubmenu() {
           // self-contained spectrum file, same as a native Open dialog pick.
           click: relPath.endsWith('.json')
             ? () => handleOpenSample(relPath)
-            : () => sendFileToRenderer(path.join(samplesRoot, relPath)),
+            : () => void sendFileToRenderer(path.join(samplesRoot, relPath)),
         };
       }),
     }));
@@ -328,7 +371,7 @@ async function buildMenu() {
         {
           label: 'Open…',
           accelerator: 'CmdOrCtrl+O',
-          click: () => handleOpenDialog(),
+          click: () => void handleOpenDialog(),
         },
         {
           label: 'Open Sample',
@@ -336,7 +379,7 @@ async function buildMenu() {
         },
         {
           label: 'Import Molecule…',
-          click: () => handleImportMoleculeDialog(),
+          click: () => void handleImportMoleculeDialog(),
         },
         { type: 'separator' },
         {
@@ -350,7 +393,7 @@ async function buildMenu() {
         { type: 'separator' },
         {
           label: 'Close All Spectra',
-          click: () => handleCloseAll(),
+          click: () => void handleCloseAll(),
         },
         { type: 'separator' },
         { role: 'quit' },
@@ -419,8 +462,32 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // The preload only uses contextBridge, ipcRenderer and standard DOM APIs,
+      // all of which work in a sandboxed preload — so there is nothing to buy
+      // by turning this off. It matters most on Windows and macOS; on Linux the
+      // AppImage launcher forces --no-sandbox process-wide anyway (see
+      // scripts/appimage-wrap.cjs), so this is the only layer left there.
+      sandbox: true,
     },
+  });
+
+  // This app renders untrusted files. Nothing should ever navigate the window
+  // away from app://, because the preload — and with it window.electronAPI —
+  // would follow it to whatever origin it landed on.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (new URL(url).protocol !== `${APP_SCHEME}:`) {
+      event.preventDefault();
+      shell.openExternal(url).catch(() => {});
+    }
+  });
+
+  // Likewise for window.open and target=_blank: never open a second
+  // BrowserWindow, hand genuine http(s) links to the user's real browser.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:$/.test(new URL(url).protocol)) {
+      shell.openExternal(url).catch(() => {});
+    }
+    return { action: 'deny' };
   });
 
   mainWindow.loadURL(`${APP_SCHEME}://bundle/index.html`);
@@ -435,7 +502,7 @@ function createWindow() {
     if (pendingOpenPath) {
       const filePath = pendingOpenPath;
       pendingOpenPath = null;
-      sendFileToRenderer(filePath);
+      void sendFileToRenderer(filePath);
     }
   });
 
@@ -444,20 +511,13 @@ function createWindow() {
   });
 }
 
-// Windows/Linux: file-association double-click passes the path as an argv entry.
-function pathFromArgv(argv) {
-  return argv.find(
-    (arg) => arg.endsWith('.dx') || arg.endsWith('.jdx') || arg.endsWith('.nmrium'),
-  );
-}
-
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
     const filePath = pathFromArgv(argv);
-    if (filePath) sendFileToRenderer(filePath);
+    if (filePath) void sendFileToRenderer(filePath);
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
@@ -467,7 +527,7 @@ if (!gotLock) {
   // macOS: file-association double-click.
   app.on('open-file', (event, filePath) => {
     event.preventDefault();
-    sendFileToRenderer(filePath);
+    void sendFileToRenderer(filePath);
   });
 
   app.whenReady().then(async () => {

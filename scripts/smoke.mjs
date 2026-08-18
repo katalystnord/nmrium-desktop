@@ -32,6 +32,10 @@ const versions = await app.evaluate(() => process.versions);
 console.log(`electron ${versions.electron}  chromium ${versions.chrome}  node ${versions.node}\n`);
 
 const page = await app.firstWindow();
+const consoleErrors = [];
+page.on('console', (m) => {
+  if (m.type() === 'error') consoleErrors.push(m.text());
+});
 await page.waitForLoadState('domcontentloaded');
 
 // 1 — the window actually renders our app, not an error page.
@@ -92,6 +96,74 @@ const clipboardWriteWorks = await page.evaluate(async () => {
   } catch (e) { return `threw: ${e.message}`; }
 });
 check('clipboard image write (ClipboardItem path)', clipboardWriteWorks === 'ok', clipboardWriteWorks);
+
+// 5b — the security fixes must be active, not merely present in source.
+const hardening = await app.evaluate(({ BrowserWindow }) => {
+  const wc = BrowserWindow.getAllWindows()[0].webContents;
+  const prefs = wc.getLastWebPreferences() ?? {};
+  return {
+    sandbox: prefs.sandbox,
+    contextIsolation: prefs.contextIsolation,
+    nodeIntegration: prefs.nodeIntegration,
+  };
+});
+check('renderer sandbox enabled', hardening.sandbox === true, String(hardening.sandbox));
+check('context isolation enabled', hardening.contextIsolation === true, String(hardening.contextIsolation));
+check('node integration disabled', hardening.nodeIntegration !== true, String(hardening.nodeIntegration));
+
+const cspApplied = await page.evaluate(
+  () => document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content ?? null,
+);
+check('CSP present', Boolean(cspApplied) && cspApplied.includes("default-src 'none'"));
+
+// The CSP has to actually block, not just be declared. Loading remote script is
+// the thing it exists to stop.
+const remoteScriptBlocked = await page.evaluate(async () => {
+  try {
+    await new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = 'https://example.com/x.js';
+      el.onload = () => resolve();
+      el.onerror = () => reject(new Error('blocked'));
+      document.head.append(el);
+      setTimeout(() => reject(new Error('blocked (timeout)')), 4000);
+    });
+    return 'LOADED';
+  } catch {
+    return 'blocked';
+  }
+});
+check('CSP blocks remote script', remoteScriptBlocked === 'blocked', remoteScriptBlocked);
+
+// The traversal fix, exercised through the real protocol handler rather than
+// only the unit tests. Before the fix this returned the contents of /etc/passwd.
+const traversal = await page.evaluate(async () => {
+  const out = {};
+  for (const [name, url] of Object.entries({
+    encoded: 'app://bundle/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc/passwd',
+    deep: 'app://bundle/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc/hostname',
+    malformed: 'app://bundle/%zz',
+  })) {
+    try {
+      const r = await fetch(url);
+      out[name] = r.ok ? `LEAKED ${r.status}` : `blocked ${r.status}`;
+    } catch {
+      out[name] = 'blocked (threw)';
+    }
+  }
+  return out;
+});
+for (const [name, result] of Object.entries(traversal)) {
+  check(`app:// traversal blocked (${name})`, !result.startsWith('LEAKED'), result);
+}
+
+// And the legitimate request still works — a containment check that blocks
+// everything would pass the tests above and break the app.
+const normalAsset = await page.evaluate(async () => {
+  const r = await fetch('app://bundle/index.html');
+  return r.ok ? 'ok' : `status ${r.status}`;
+});
+check('app:// still serves legitimate assets', normalAsset === 'ok', normalAsset);
 
 // 6 — end-to-end: load a real spectrum the same way File > Open does, then
 // export it as SVG through our own IPC, with the save dialog stubbed so the
@@ -154,6 +226,18 @@ if (mounted) {
     fs.rmSync(out, { force: true });
   }
 }
+
+// 7 — a CSP that fires on the app's own resources would break it silently.
+const cspViolations = consoleErrors.filter(
+  // example.com is the deliberate probe above; anything else is the app's own
+  // resources being blocked, which means the policy is too tight to ship.
+  (t) => /Content Security Policy/i.test(t) && !t.includes('example.com'),
+);
+check(
+  'no CSP violations from the app itself',
+  cspViolations.length === 0,
+  cspViolations.slice(0, 3).join(' | ') || 'none',
+);
 
 await app.close().catch(() => {});
 

@@ -430,10 +430,10 @@
         <h3>Linux</h3>
         <p>.deb package &mdash; recommended</p>
         <a class="btn btn-primary" href="https://github.com/katalystnord/nmrium-desktop/releases">Download</a>
-        <p class="dl-note">An AppImage is published too, but it needs FUSE&nbsp;2, which current
-        distributions no longer ship. If it exits with <code>error loading libfuse.so.2</code>,
-        install <code>libfuse2t64</code> or run it with <code>--appimage-extract-and-run</code>.
-        The <code>.deb</code> has no such requirement.</p>
+        <p class="dl-note">A portable AppImage is published too, and needs nothing installed.
+        If you have an older download (v2.5.0 or earlier) that exits with
+        <code>error loading libfuse.so.2</code>, take a newer release &mdash; current builds
+        use a statically-linked runtime with no FUSE dependency.</p>
       </div>
       <div class="dl-card">
         <div class="plat-icon">

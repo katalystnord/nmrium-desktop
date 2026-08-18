@@ -52,6 +52,7 @@ npm start
 | `npm run update-nmrium` | Bump the submodule to an upstream tag and sync the version |
 | `npm test` | Wrapper test suite (Node's built-in runner, no dependencies) |
 | `npm run test:mutation` | Mutation gate — fails if any wrapper test is vacuous |
+| `npm run smoke` | Launch the real app and exercise load/export/security (needs a display) |
 | `npm run test:nmrium` | NMRium's own unit tests, against the pinned submodule |
 | `npm run check-version` | Assert the wrapper version matches the bundled NMRium |
 | `npm run sync-version` | Set the wrapper version from the bundled NMRium |
@@ -170,9 +171,35 @@ open a spectrum, open a sample, switch workspaces, export — before promoting t
 draft release. That is the real gate, and automating it is the obvious next
 piece of work here.
 
-There is no automated UI test for the Electron shell itself. Verify a change
-manually with `npm start`: open a spectrum, open a sample, switch workspaces,
-and export.
+`npm run smoke` drives the real packaged-code paths through Playwright: it
+launches the app, loads a spectrum the same way File → Open does, exports it as
+SVG through the actual IPC, and asserts the hardening is live — sandbox on,
+context isolation on, CSP present and blocking remote script, and `app://`
+traversal rejected. It needs a display, and it is the check to run before
+shipping an Electron or NMRium bump; the unit suite cannot see any of this.
+
+### Security posture
+
+The app renders untrusted files, so the shell is deliberately locked down, and
+`scripts/smoke.mjs` asserts each of these rather than trusting the source:
+
+- **`app://` requests are contained.** `electron/url-paths.cjs` resolves and
+  then verifies the result is inside the root. `new URL()` normalises literal
+  `../` away but leaves percent-encoded `../` intact, so decoding reintroduces
+  traversal after the parser has "cleaned" the path — this really did read
+  `/etc/passwd` before the fix.
+- **CSP** in `renderer/index.html`, `default-src 'none'`. NMRium makes no
+  external requests at runtime, so this is achievable rather than aspirational.
+- **No navigation away from `app://`.** `will-navigate` and
+  `setWindowOpenHandler` send real links to the user's browser instead; the
+  preload, and `window.electronAPI` with it, must never follow the page to
+  another origin.
+- **`sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`.**
+- **IPC handlers verify the sender** and sanitise the filename they put in a
+  save dialog.
+
+There is still no automated UI test. For anything visual, use `npm start`: open
+a spectrum, open a sample, switch workspaces, and export.
 
 ## Project structure
 
@@ -186,7 +213,9 @@ nmrium-desktop/
 │   ├── build-nmrium.sh          # Installs the submodule's dependencies
 │   ├── update-nmrium.sh         # Bumps the submodule and syncs the version
 │   ├── check-version.cjs        # Version-drift guard
-│   ├── appimage-wrap.cjs        # electron-builder afterPack hook (Linux)
+│   ├── appimage-wrap.cjs        # afterPack hook: launcher shim, strip dead weight
+│   ├── appimage-runtime.cjs     # afterAllArtifactBuild hook: FUSE-free AppImage runtime
+│   ├── smoke.mjs                # Drives the real app; run before shipping a bump
 │   ├── generate-icons.cjs       # hicolor icon size set
 │   └── build-samples-*.sh       # Optional sample-data companion packages
 ├── sample-data/       # Our own samples, merged with NMRium's catalog at runtime

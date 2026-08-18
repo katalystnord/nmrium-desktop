@@ -3,6 +3,35 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      The app renders untrusted spectrum files, so an XSS in NMRium's rendering
+      must not be able to reach the network or load remote script. Everything
+      ships in the bundle: NMRium makes no external requests at runtime, so
+      default-src 'none' is achievable rather than aspirational.
+
+      Two relaxations, both required and both bounded:
+        style-src 'unsafe-inline' — NMRium styles via emotion, which injects
+          <style> at runtime; there is no nonce to hand it.
+        img/font/connect blob: and data: — spectra render to blob URLs, and the
+          Blueprint icon font is inlined as data:.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: blob:;
+        font-src 'self' data:;
+        connect-src 'self' data: blob:;
+        worker-src 'self' blob:;
+        media-src 'self' blob:;
+        object-src 'none';
+        base-uri 'none';
+        form-action 'none';
+        frame-ancestors 'none';
+      "
+    />
     <title>NMRium</title>
     <style>
       html,

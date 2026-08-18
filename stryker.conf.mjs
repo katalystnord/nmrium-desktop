@@ -21,6 +21,12 @@ export default {
   // below with a reason.
   mutate: [
     'scripts/*.cjs',
+    // electron/*.cjs is where pure, electron-free logic lifted out of main.js
+    // lives — currently url-paths.cjs, which decides which file on disk a
+    // renderer request may reach. That is the highest-consequence logic in the
+    // app, so it is held to the same bar. main.js and preload.js are .js and
+    // import electron directly, so they are not matched and are not mutated.
+    'electron/*.cjs',
     // Excluded: it has no unit tests and cannot easily get them — it runs
     // under Electron for nativeImage, and does its work at import time rather
     // than behind an exported function.

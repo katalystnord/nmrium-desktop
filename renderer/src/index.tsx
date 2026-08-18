@@ -27,26 +27,43 @@ function App() {
   useEffect(() => {
     window.electronAPI.onSetWorkspace(setWorkspace);
 
+    // Both handlers report failure explicitly. Without the try/catch an
+    // exception inside NMRium propagates out of the async callback and is
+    // swallowed: no file, no dialog, no error — the menu item simply appears to
+    // do nothing. NMRium's own getBlob is a live example, dereferencing the
+    // result of an optional-chained querySelector without a null guard.
     window.electronAPI.onTriggerSaveAs(async (options) => {
       const api = nmriumRef.current;
       if (!api) return;
-      const blob = await api.getNMRiumFile(options);
-      const buffer = await blob.arrayBuffer();
-      window.electronAPI.sendNmriumFileData(buffer, 'experiment.nmrium');
+      try {
+        const blob = await api.getNMRiumFile(options);
+        const buffer = await blob.arrayBuffer();
+        window.electronAPI.sendNmriumFileData(buffer, 'experiment.nmrium');
+      } catch (error) {
+        window.electronAPI.sendActionError(
+          `Could not save: ${(error as Error).message}`,
+        );
+      }
     });
 
     window.electronAPI.onTriggerExportSvg(async () => {
       const api = nmriumRef.current;
       if (!api) return;
-      const result = api.getSpectraViewerAsBlob();
-      if (!result) {
+      try {
+        const result = api.getSpectraViewerAsBlob();
+        if (!result) {
+          window.electronAPI.sendActionError(
+            'Nothing to export yet — load a spectrum first.',
+          );
+          return;
+        }
+        const buffer = await result.blob.arrayBuffer();
+        window.electronAPI.sendNmriumSvgData(buffer, 'spectrum.svg');
+      } catch (error) {
         window.electronAPI.sendActionError(
-          'Nothing to export yet — load a spectrum first.',
+          `Could not export: ${(error as Error).message}`,
         );
-        return;
       }
-      const buffer = await result.blob.arrayBuffer();
-      window.electronAPI.sendNmriumSvgData(buffer, 'spectrum.svg');
     });
 
     window.electronAPI.onOpenSample(async ({ url }) => {

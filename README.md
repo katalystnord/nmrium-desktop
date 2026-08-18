@@ -69,34 +69,32 @@ It has no runtime dependency beyond what the package declares, registers the
 `.dx`/`.jdx` file associations, and puts NMRium Desktop in the applications
 menu.
 
-### The AppImage needs FUSE 2
+### A note on FUSE, if you have an older download
 
 The AppImage is the portable option — no install, just mark it executable and
-run it — but it will refuse to start on most current distributions with:
+run it.
+
+Releases **after v2.5.0** need nothing extra. Earlier ones (v2.3.0, v2.5.0) shipped
+electron-builder's default AppImage runtime, which `dlopen()`s `libfuse.so.2`,
+and Ubuntu 24.04+, Debian 13+ and current Fedora ship only FUSE 3. On those, an
+older AppImage exits immediately with:
 
 ```
 dlopen(): error loading libfuse.so.2
-
-AppImages require FUSE to run.
 ```
 
-This is not a problem with the app. AppImage's runtime links against FUSE 2,
-while Ubuntu 24.04+, Debian 13+ and recent Fedora ship only FUSE 3. Either
-install the compatibility package:
+If you hit that, either grab a newer release, or:
 
 ```sh
-sudo apt install libfuse2t64      # Ubuntu 24.04+ / Debian 13+
-sudo apt install libfuse2         # older releases, where the package kept that name
+sudo apt install libfuse2t64                          # Ubuntu 24.04+ / Debian 13+
+./NMRium\ Desktop-<version>.AppImage --appimage-extract-and-run   # or skip FUSE entirely
 ```
 
-...or skip FUSE entirely and run the payload directly:
-
-```sh
-./NMRium\ Desktop-<version>.AppImage --appimage-extract-and-run
-```
-
-If you are choosing for someone else — a shared lab machine, a student's
-laptop — install the `.deb`. It sidesteps this whole class of problem.
+Current builds replace that runtime with AppImage's statically-linked
+[type2-runtime](https://github.com/AppImage/type2-runtime), which has no libfuse
+dependency at all — confirmed with `strace`: the old runtime makes one
+`openat()` for `libfuse.so.2`, the new one makes none. See
+`scripts/appimage-runtime.cjs`.
 
 ## Requirements
 
