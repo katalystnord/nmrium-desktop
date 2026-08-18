@@ -25,16 +25,18 @@
     "build:samples-archive": "bash scripts/build-samples-archive.sh",
     "build:samples-deb": "bash scripts/build-samples-deb.sh",
     "test": "node --test tests/*.test.mjs",
-    "test:nmrium": "cd nmrium && npm run test-only"
+    "test:nmrium": "cd nmrium && npm run test-only",
+    "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
     "@blueprintjs/core": "^6.16.0",
     "@blueprintjs/icons": "^6.11.0",
     "@blueprintjs/select": "^6.3.0",
     "@vitejs/plugin-react": "^6.0.3",
-    "electron": "^35.0.0",
-    "electron-builder": "^25.0.0",
+    "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
     "modern-normalize": "^3.0.1",
+    "playwright-core": "^1.62.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-science": "^20.2.0",
@@ -106,7 +108,9 @@
       ],
       "category": "Science;Education",
       "desktop": {
-        "StartupWMClass": "nmrium-desktop"
+        "entry": {
+          "StartupWMClass": "nmrium-desktop"
+        }
       }
     },
     "deb": {
