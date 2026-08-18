@@ -55,7 +55,11 @@ test('the launcher resolves symlinks before taking dirname', async () => {
   assert.match(launcher, /"\$@"/);
 });
 
-test('the launcher is executable', async () => {
+// The hook is Linux-only in production, but the suite drives it with a faked
+// `linux` platform on whatever OS CI happens to run. Every other assertion is
+// portable; this one is not, because chmod cannot set POSIX mode bits on NTFS
+// and Windows reports its own defaults regardless of what we asked for.
+test('the launcher is executable', { skip: process.platform === 'win32' }, async () => {
   const ctx = packedApp('linux');
   await afterPack(ctx);
   const mode = fs.statSync(path.join(ctx.appOutDir, EXE)).mode & 0o777;
