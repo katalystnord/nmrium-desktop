@@ -13,6 +13,15 @@ Version numbers match the bundled NMRium release exactly — see
 Wrapper-only work, so it carries no version of its own; it ships with the next
 NMRium sync (see [CONTRIBUTING.md → Versioning](CONTRIBUTING.md#versioning)).
 
+## [2.8.0] - 2026-09-14
+
+### Changed
+
+- NMRium updated to **v2.8.0**. Upstream highlights: `ChartBrushTracker`
+  integration for processings. Fixes: spectrum resurrection from the database
+  no longer clones Immer proxies, and range analysis now takes priority when
+  Alt is pressed alone.
+
 ## [2.7.0] - 2026-09-14
 
 ### Changed
