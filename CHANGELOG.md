@@ -13,6 +13,17 @@ Version numbers match the bundled NMRium release exactly — see
 Wrapper-only work, so it carries no version of its own; it ships with the next
 NMRium sync (see [CONTRIBUTING.md → Versioning](CONTRIBUTING.md#versioning)).
 
+## [2.7.0] - 2026-09-14
+
+### Changed
+
+- NMRium updated to **v2.7.0**. Upstream highlights: improved minimum contour
+  level determination for 2D spectra, and processings UI work (ChartSVG and
+  operation-generation integration). Fixes: iframe style transfer and more
+  stable peak label positioning/sizing in export and print, a crash during
+  export size validation, and secondary axis ticks now rendering only between
+  primary ticks.
+
 ## [2.6.0] - 2026-09-14
 
 ### Changed
