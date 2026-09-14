@@ -10,60 +10,125 @@ Version numbers match the bundled NMRium release exactly — see
 
 ## [Unreleased]
 
-Wrapper-only work, so it carries no version of its own — it ships with the next
+Wrapper-only work, so it carries no version of its own; it ships with the next
 NMRium sync (see [CONTRIBUTING.md → Versioning](CONTRIBUTING.md#versioning)).
+
+## [2.6.0] - 2026-09-14
+
+### Changed
+
+- NMRium updated to **v2.6.0**. Upstream highlights: 2D alignment promoted to
+  a stable tool, ph0/ph1 phase calculation, a live preview while editing
+  processings, a nucleus selector shown when no spectrum is loaded, versioned
+  custom workspaces, and peak absolute/relative shape area display. Fixes
+  include baseline-correction anchors no longer reverting to their defaults,
+  correct removal of signal assignments, typed-array handling when loading
+  old `.nmrium` files, and a crash/negative-input bug in the export form.
+- The wrapper's own `react-science` dependency bumped from `^20.2.0` to
+  `^23.0.1` to match what this NMRium release now imports. `vite.config.js`
+  dedupes `react-science` to one resolved copy shared between the wrapper and
+  the submodule, so the two must stay compatible; without the bump the
+  renderer build fails on a missing `coerceNumberInput` export.
+- Upgraded to **Electron 43** and **electron-builder 26**. Verified with
+  `npm run smoke` on both the old and new toolchain: clipboard write/read,
+  `OffscreenCanvas` export, and SVG export all still work, byte-equivalent on
+  export. Required one migration: electron-builder 26 rejects a flat
+  `linux.desktop` map and needs the entries nested under `entry`.
+- `scripts/build-nmrium.sh` installs the submodule with `npm ci` instead of
+  `npm install`. `npm install` re-resolves against `package.json` and can
+  rewrite the lockfile, so two builds from the same submodule pin could
+  differ, which defeats the point of pinning it. `npm ci` installs exactly the
+  committed lockfile.
+- `npm run update-nmrium` now derives the version through `sync-version` and
+  verifies it with `check-version`, rather than computing it from the tag
+  string, and its next-steps output points at the test suite.
+- CI's Windows leg now skips the POSIX file-mode assertion in the AppImage
+  `afterPack` test: `chmod` cannot set POSIX bits on NTFS, so Windows reported
+  its own defaults regardless of what the hook requested. The other eight
+  assertions in that file are platform-independent and still run there.
+- Documented upstream's real test coverage: 46 Playwright end-to-end tests
+  across 13 files, run against three browsers against real Bruker fid data,
+  plus type-check, eslint, prettier, stylelint, knip and cspell, on top of the
+  vitest suite this repo's CI actually runs. The point sharpens rather than
+  softens: this wrapper's CI covers the smaller half of upstream's testing, so
+  an upstream bump is not safe on CI alone; `npm run smoke` plus a manual
+  check of the built app is still the gate that matters.
 
 ### Added
 
-- **Automatic upstream tracking.** A daily *Sync NMRium* workflow checks
-  `cheminfo/nmrium` for a new release at 06:00 UTC, moves the submodule pin,
-  syncs the version, and pushes a tag — which trips the build workflow into a
-  draft release. Upstream progress no longer waits on someone remembering to
-  bump it by hand. Requires a `GH_PAT` repository secret.
 - **A test suite** (`npm test`), using Node's built-in runner with no
   dependencies and no need for the submodule, so it runs in seconds:
-  - `check-version.test.mjs` — the version-drift guard.
-  - `appimage-wrap.test.mjs` — the Linux launcher shim. Covers the
+  - `check-version.test.mjs`: the version-drift guard.
+  - `appimage-wrap.test.mjs`: the Linux launcher shim. Covers the
     `--no-sandbox` flag, the `readlink -f` resolution that keeps `.deb`
     installs launchable by typed name, the removal of `chrome-sandbox` and
-    Chromium's 12 MB licence dump, and — the one that would hurt —
+    Chromium's 12 MB licence dump, and, the one that would hurt,
     `libffmpeg.so` *not* being removed, since it looks like an optional codec
     and is actually a hard link dependency of the Electron binary.
-  - `sample-catalog.test.mjs` — the ways a sample entry can silently do
+  - `sample-catalog.test.mjs`: the ways a sample entry can silently do
     nothing: a group missing from `SAMPLE_MENU_GROUPS` never renders, a
     directory the build scripts do not package produces a menu item that
     fails on click, and a workspace id NMRium has renamed falls back to the
     default without a word. Each of these has shipped at least once.
-- **`npm run test:nmrium`** — NMRium's own vitest suite against the pinned
-  submodule, run in CI on every push. Worth being clear about its size: 13 tests
-  across 7 files at v2.5.0, covering peak-picking and range utilities. It is a
-  tripwire on an upstream bump, not a safety net — upstream's real coverage is
-  in their Playwright suite, which tests their demo app rather than this
-  wrapper. Smoke-testing the built app before promoting a draft release is still
-  the gate that matters.
-- **`scripts/check-version.cjs`** — fails the build if `package.json` and the
+- **`npm run test:nmrium`**: NMRium's own vitest suite against the pinned
+  submodule, run in CI on every push. Its real size is worth stating plainly:
+  13 tests across 7 files, covering peak-picking and range utilities. It is a
+  tripwire on an upstream bump, not a safety net; upstream's real coverage is
+  the 46-test Playwright suite noted above, which tests their demo app rather
+  than this wrapper.
+- **`scripts/check-version.cjs`**: fails the build if `package.json` and the
   bundled NMRium disagree on the version. Runs before `build`, `dist` and
-  `pack`, and as its own step in both CI workflows, so a drifted version cannot
-  ship. `npm run sync-version` is the fix.
-- **`CONTRIBUTING.md`** — prerequisites, build commands, the versioning policy,
-  and why NMRium is a pinned submodule rather than a tracked branch.
+  `pack`, and as its own step in both CI workflows, so a drifted version
+  cannot ship. `npm run sync-version` is the fix.
+- **`CONTRIBUTING.md`**: prerequisites, build commands, the versioning
+  policy, and why NMRium is a pinned submodule rather than a tracked branch.
 - **`LICENSE`** (MIT) and **`THIRD_PARTY_LICENSES`**, crediting Zakodium /
   cheminfo and the EU Horizon 2020 grant funding behind NMRium, with its MIT
   text verbatim from the pinned checkout.
+- **A daily *Sync NMRium* workflow**, currently paused (see below): it would
+  check `cheminfo/nmrium` for a new release, move the submodule pin, sync the
+  version, and push a tag to trip the build workflow into a draft release.
+  Manual bumps via `npm run update-nmrium` stay available either way.
+- **A mutation gate** (`npm run test:mutation`, Stryker): introduces one
+  defect at a time and requires a test to fail, rather than trusting a
+  passing suite as proof a broken change would be caught. 100% mutation score
+  (28/28 mutants) across `check-version.cjs` and `appimage-wrap.cjs`, with the
+  gate mutating `scripts/*.cjs` by glob so new scripts are covered by
+  default; the threshold breaks CI below 100.
 - **This changelog.**
 
-### Changed
+### Fixed
 
-- `scripts/build-nmrium.sh` installs the submodule with `npm ci` instead of
-  `npm install`. `npm install` re-resolves against `package.json` and can
-  rewrite the lockfile, so two builds from the same submodule pin could differ —
-  which defeats the point of pinning it. `npm ci` installs exactly the committed
-  lockfile.
-- `npm run update-nmrium` now derives the version through `sync-version` and
-  verifies it with `check-version`, rather than computing it from the tag
-  string, and its next-steps output points at the test suite.
+- **A path traversal vulnerability** in the `app://` renderer protocol
+  handler: `decodeURIComponent` ran after `new URL().pathname`, so a literal
+  `../` was normalised away while a percent-encoded `../` survived and was
+  decoded afterward, letting a crafted request resolve outside the renderer
+  root (confirmed against the running app:
+  `app://bundle/%2e%2e%2f...%2fetc/passwd` returned `/etc/passwd`). Fixed in
+  `electron/url-paths.cjs`, which now resolves and verifies containment and
+  fails closed instead of clamping. Covered by 19 test cases: encoded,
+  double-encoded, backslash, absolute, prefix-collision, NUL and malformed
+  input.
+- **Electron shell hardening**: a real CSP (`default-src 'none'`, achievable
+  since NMRium makes no external requests at runtime); `will-navigate` and
+  `setWindowOpenHandler` locked to `app://`; `sandbox: true` on the preload;
+  IPC sender verification; save dialogs restricted to a basename-only
+  filename; and unhandled rejections caught around every fire-and-forget call
+  site.
+- **Export failures no longer fail silently.** NMRium's `getBlob` dereferences
+  an optional-chained `querySelector` with no null guard, so a miss threw out
+  of an async handler and the export menu item did nothing: no file, no
+  dialog. Both export handlers now report the failure.
+- **AppImage launch failure on modern Linux.** electron-builder's bundled
+  AppImage runtime `dlopen()`s `libfuse.so.2`, which Ubuntu 24.04+, Debian
+  13+ and current Fedora no longer ship, so the AppImage died with a message
+  naming a shared library instead of saying what to do.
+  `scripts/appimage-runtime.cjs` now swaps in AppImage's statically-linked
+  type2 runtime, pinned by sha256. The README leads with the `.deb` for
+  Debian/Ubuntu and documents both workarounds (`libfuse2t64`, or
+  `--appimage-extract-and-run`) for the AppImage.
 
-## [2.5.0] — 2026-07-21
+## [2.5.0] - 2026-07-21
 
 ### Changed
 

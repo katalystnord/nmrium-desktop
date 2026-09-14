@@ -154,7 +154,7 @@ produces no mutants and does not affect the score. A 100% result means *the
 tests that exist are honest*, not that the app is well tested.
 
 `npm run test:nmrium` runs NMRium's own vitest suite against the pinned
-submodule. Be precise about what that is: at v2.5.0 it is 13 tests across 7
+submodule. Be precise about what that is: at v2.6.0 it is 13 tests across 7
 files, covering peak-picking and range utilities.
 
 **That number is not a verdict on NMRium's testing, and should not be read as
