@@ -203,11 +203,13 @@ test('the pinned runtime is the one we audited', () => {
     hook.RUNTIME_URL,
     'https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64',
   );
-  // sha256 of the runtime verified locally: statically linked, and strace shows
-  // zero openat() calls for libfuse.so.2.
+  // sha256 of the runtime, matching the digest GitHub publishes for the asset.
+  // Statically linked (`ldd`: not a dynamic executable), so it has no libfuse.so.2
+  // to load. Upstream rebuilt it 2026-09-28 (type2-runtime 8f39b89e, a two-line
+  // mkdir mode 0755 -> 0700 change); the previous pin was 1cc49bcf.
   assert.equal(
     hook.RUNTIME_SHA256,
-    '1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf',
+    '156f4bdbde9c52d01814600013e0a273f0118dc2de98975f3c8c63427ec79074',
   );
   assert.match(hook.RUNTIME_SHA256, /^[0-9a-f]{64}$/);
 });

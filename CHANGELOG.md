@@ -24,6 +24,10 @@ NMRium sync (see [CONTRIBUTING.md → Versioning](CONTRIBUTING.md#versioning)).
   operator UI `ChartMouseIcon`, assignment labels updating automatically when
   linked automatically, and `insets` moving to `view.insets`. Fixes include
   live-change handling in processings and clearing the fifo-logger.
+- The pinned AppImage runtime was updated to upstream's 2026-09-28 rebuild
+  (type2-runtime `8f39b89e`, which creates extraction directories with mode
+  0700 instead of 0755). Still statically linked, so still no libfuse2
+  dependency.
 
 ## [2.8.0] - 2026-09-14
 

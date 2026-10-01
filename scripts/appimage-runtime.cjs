@@ -33,7 +33,7 @@ const os = require('node:os');
 const RUNTIME_URL =
   'https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64';
 const RUNTIME_SHA256 =
-  '1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf';
+  '156f4bdbde9c52d01814600013e0a273f0118dc2de98975f3c8c63427ec79074';
 
 /**
  * Size of the ELF image in `header` — where the appended payload begins.
