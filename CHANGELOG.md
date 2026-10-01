@@ -13,6 +13,18 @@ Version numbers match the bundled NMRium release exactly — see
 Wrapper-only work, so it carries no version of its own; it ships with the next
 NMRium sync (see [CONTRIBUTING.md → Versioning](CONTRIBUTING.md#versioning)).
 
+## [3.0.0] - 2026-10-01
+
+### Changed
+
+- NMRium updated to **v3.0.0**, a major release. Upstream breaking change:
+  React is now v19. The wrapper's own `react` and `react-dom` pins moved from
+  `^18.3.1` to `^19.3.0` to match, so the renderer and NMRium share one copy.
+  Other upstream highlights: higher default contour levels for 2D spectra, the
+  operator UI `ChartMouseIcon`, assignment labels updating automatically when
+  linked automatically, and `insets` moving to `view.insets`. Fixes include
+  live-change handling in processings and clearing the fifo-logger.
+
 ## [2.8.0] - 2026-09-14
 
 ### Changed

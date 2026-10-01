@@ -1,6 +1,6 @@
 {
   "name": "nmrium-desktop",
-  "version": "2.8.0",
+  "version": "3.0.0",
   "description": "NMRium NMR spectrum viewer — desktop app",
   "homepage": "https://github.com/cheminfo/nmrium",
   "author": {
@@ -39,8 +39,8 @@
     "electron-builder": "^26.15.3",
     "modern-normalize": "^3.0.1",
     "playwright-core": "^1.62.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-science": "^23.0.1",
     "vite": "^8.0.16"
   },
