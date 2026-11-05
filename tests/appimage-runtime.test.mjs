@@ -209,7 +209,7 @@ test('the pinned runtime is the one we audited', () => {
   // mkdir mode 0755 -> 0700 change); the previous pin was 1cc49bcf.
   assert.equal(
     hook.RUNTIME_SHA256,
-    '156f4bdbde9c52d01814600013e0a273f0118dc2de98975f3c8c63427ec79074',
+    '617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46',
   );
   assert.match(hook.RUNTIME_SHA256, /^[0-9a-f]{64}$/);
 });

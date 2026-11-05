@@ -26,6 +26,9 @@ NMRium sync (see [CONTRIBUTING.md → Versioning](CONTRIBUTING.md#versioning)).
   controlled externally. Fixes include a crash when the contour level count is
   0, correlations loading correctly, missing imaginary data, and workspace
   action button styling.
+- The pinned AppImage runtime was updated to upstream's 2026-10-19 rebuild
+  (type2-runtime `fedfad51`, which only keeps the temporary build path out of
+  the runtime's build ID; no functional change).
 
 ## [3.0.0] - 2026-10-01
 
