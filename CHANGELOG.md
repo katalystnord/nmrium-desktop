@@ -13,6 +13,20 @@ Version numbers match the bundled NMRium release exactly — see
 Wrapper-only work, so it carries no version of its own; it ships with the next
 NMRium sync (see [CONTRIBUTING.md → Versioning](CONTRIBUTING.md#versioning)).
 
+## [3.1.0] - 2026-11-05
+
+### Changed
+
+- NMRium updated to **v3.1.0**. Upstream moved react-science to v24, so the
+  wrapper's own `react-science` pin moved from `^23.0.1` to `^24.1.0`, and the
+  `@blueprintjs/*` pins were raised to match react-science 24's requirements
+  (`core` ^6.22.0, `icons` ^6.15.0, `select` ^6.4.1). Upstream highlights:
+  spectra can be reordered by drag and drop (the order is saved with the
+  data), table rows can be reordered by drag and drop, and highlights can be
+  controlled externally. Fixes include a crash when the contour level count is
+  0, correlations loading correctly, missing imaginary data, and workspace
+  action button styling.
+
 ## [3.0.0] - 2026-10-01
 
 ### Changed
